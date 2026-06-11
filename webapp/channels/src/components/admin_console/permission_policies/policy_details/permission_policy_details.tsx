@@ -11,6 +11,7 @@ import {buttonClassNames} from '@mattermost/shared/components/button';
 import type {AccessControlPolicy, AccessControlPolicyRule} from '@mattermost/types/access_control';
 import type {AccessControlSettings} from '@mattermost/types/config';
 import type {UserPropertyField} from '@mattermost/types/properties';
+import {SESSION_ATTRIBUTES_GROUP_ID} from '@mattermost/types/properties';
 
 import {isPolicySimulationEnabled} from 'mattermost-redux/selectors/entities/general';
 import type {ActionResult} from 'mattermost-redux/types/actions';
@@ -308,6 +309,9 @@ function PermissionPolicyDetails({
 
     const filteredAttributes = useMemo(() => {
         return autocompleteResult.filter((attr) => {
+            if (attr.group_id === SESSION_ATTRIBUTES_GROUP_ID) {
+                return true;
+            }
             if (accessControlSettings.EnableUserManagedAttributes) {
                 return true;
             }

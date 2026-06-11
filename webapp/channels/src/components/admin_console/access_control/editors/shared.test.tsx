@@ -4,10 +4,11 @@
 import React from 'react';
 
 import type {UserPropertyField} from '@mattermost/types/properties';
+import {SESSION_ATTRIBUTES_GROUP_ID} from '@mattermost/types/properties';
 
 import {renderWithContext, screen} from 'tests/react_testing_utils';
 
-import {TestButton, hasUsableAttributes} from './shared';
+import {TestButton, excludeSessionAttributes, hasUsableAttributes} from './shared';
 
 describe('TestButton', () => {
     const baseProps = {
@@ -427,5 +428,56 @@ describe('hasUsableAttributes', () => {
         ];
 
         expect(hasUsableAttributes(userAttributes, false)).toBe(true);
+    });
+});
+
+describe('excludeSessionAttributes', () => {
+    const makeField = (id: string, groupId: UserPropertyField['group_id']): UserPropertyField => ({
+        id,
+        name: id,
+        type: 'text',
+        group_id: groupId,
+        target_id: '',
+        target_type: '',
+        object_type: '',
+        attrs: {
+            sort_order: 0,
+            visibility: 'always',
+            value_type: '',
+        },
+        create_at: 0,
+        update_at: 0,
+        delete_at: 0,
+        created_by: '',
+        updated_by: '',
+    });
+
+    test('removes session-attribute fields and keeps user attributes', () => {
+        const userField = makeField('department', 'custom_profile_attributes');
+        const sessionField = makeField('ip_address', SESSION_ATTRIBUTES_GROUP_ID);
+
+        expect(excludeSessionAttributes([userField, sessionField])).toEqual([userField]);
+    });
+
+    test('returns an empty array for empty input', () => {
+        expect(excludeSessionAttributes([])).toEqual([]);
+    });
+
+    test('returns the list unchanged when no session attributes are present', () => {
+        const fields = [
+            makeField('department', 'custom_profile_attributes'),
+            makeField('location', 'custom_profile_attributes'),
+        ];
+
+        expect(excludeSessionAttributes(fields)).toEqual(fields);
+    });
+
+    test('returns an empty array when every field is a session attribute', () => {
+        const fields = [
+            makeField('ip_address', SESSION_ATTRIBUTES_GROUP_ID),
+            makeField('network_name', SESSION_ATTRIBUTES_GROUP_ID),
+        ];
+
+        expect(excludeSessionAttributes(fields)).toEqual([]);
     });
 });

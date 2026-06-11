@@ -2,6 +2,7 @@
 // See LICENSE.txt for license information.
 
 import classNames from 'classnames';
+import type {ComponentType} from 'react';
 import React, {useMemo, useState, useEffect, useCallback, useRef} from 'react';
 import {useIntl} from 'react-intl';
 
@@ -16,10 +17,14 @@ import {
     InformationOutlineIcon,
     SyncIcon,
     ShieldAlertOutlineIcon,
+    MonitorIcon,
+    CellphoneIcon,
+    GlobeIcon,
 } from '@mattermost/compass-icons/components';
 import type IconProps from '@mattermost/compass-icons/components/props';
 import {WithTooltip} from '@mattermost/shared/components/tooltip';
 import type {UserPropertyField} from '@mattermost/types/properties';
+import {SESSION_ATTRIBUTES_GROUP_ID} from '@mattermost/types/properties';
 
 import * as Menu from 'components/menu';
 
@@ -68,6 +73,12 @@ const AttributeIcon = (props: IconProps & { attribute?: UserPropertyField }) => 
     return <MenuVariantIcon {...iconProps}/>;
 };
 
+const PLATFORM_ICONS: Record<string, ComponentType<IconProps>> = {
+    desktop: MonitorIcon,
+    mobile: CellphoneIcon,
+    browser: GlobeIcon,
+};
+
 interface AttributeSelectorProps {
     currentAttribute: string;
     availableAttributes: UserPropertyField[];
@@ -99,6 +110,19 @@ const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled,
         });
     }, [availableAttributes, filter]);
 
+    const {userOptions, sessionOptions} = useMemo(() => {
+        const user: UserPropertyField[] = [];
+        const session: UserPropertyField[] = [];
+        for (const attr of options) {
+            if (attr.group_id === SESSION_ATTRIBUTES_GROUP_ID) {
+                session.push(attr);
+            } else {
+                user.push(attr);
+            }
+        }
+        return {userOptions: user, sessionOptions: session};
+    }, [options]);
+
     const handleAttributeChange = React.useCallback((attribute: string) => {
         onChange(attribute);
         setFilter(''); // Reset filter after selection
@@ -125,6 +149,117 @@ const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled,
         }
         prevAutoOpen.current = autoOpen;
     }, [autoOpen, buttonId, onMenuOpened]);
+
+    const renderOption = (option: UserPropertyField) => {
+        const {name} = option;
+        const displayName = option.attrs?.display_name;
+
+        // hasSpaces checks the CEL identifier (name), not the display label.
+        // New fields cannot have spaces in name but leaving this check for backwards compatibility with grandfathered legacy fields.
+        const hasSpaces = name.includes(' ');
+        const isSessionAttribute = option.group_id === SESSION_ATTRIBUTES_GROUP_ID;
+        const isSynced = option.attrs?.ldap || option.attrs?.saml;
+        const isAdminManaged = option.attrs?.managed === 'admin';
+        const isProtected = option.attrs?.protected;
+        const allowed = isSessionAttribute || isSynced || isAdminManaged || isProtected || enableUserManagedAttributes;
+
+        const platforms = isSessionAttribute ? ((option.attrs as {platforms?: string[]} | undefined)?.platforms ?? []) : [];
+
+        const menuItem = (
+            <Menu.Item
+                id={`attribute-${name}`}
+                key={name}
+                role='menuitemradio'
+                forceCloseOnSelect={true}
+                aria-checked={name === currentAttribute}
+                onClick={hasSpaces ? undefined : () => handleAttributeChange(name)}
+                labels={
+                    displayName ? (
+                        <AttributeLabel
+                            displayName={displayName}
+                            name={name}
+                        />
+                    ) : <span>{name}</span>
+                }
+                disabled={hasSpaces || !allowed}
+                leadingElement={
+                    <AttributeIcon
+                        attribute={option}
+                        size={18}
+                    />
+                }
+                trailingElements={(
+                    <>
+                        {platforms.map((platform) => {
+                            const PlatformIcon = PLATFORM_ICONS[platform];
+                            return PlatformIcon ? (
+                                <PlatformIcon
+                                    key={platform}
+                                    size={16}
+                                    color='rgba(var(--center-channel-color-rgb), 0.5)'
+                                />
+                            ) : null;
+                        })}
+                        {hasSpaces && (
+                            <InformationOutlineIcon
+                                size={18}
+                            />
+                        )}
+                        {!allowed && !isSynced && (
+                            <ShieldAlertOutlineIcon
+                                size={18}
+                                color='rgba(var(--center-channel-color-rgb), 0.5)'
+                            />
+                        )}
+                        {isSynced && (
+                            <SyncIcon
+                                size={18}
+                                color='rgba(var(--center-channel-color-rgb), 0.5)'
+                            />
+                        )}
+                        {name === currentAttribute &&
+                            <CheckIcon/>
+                        }
+                    </>
+                )}
+            />
+        );
+
+        // Determine tooltip content based on conditions
+        let tooltipContent = null;
+        if (hasSpaces) {
+            tooltipContent = formatMessage({
+                id: 'admin.access_control.table_editor.attribute_spaces_not_supported',
+                defaultMessage: 'CEL is not compatible with variable names containing spaces',
+            });
+        } else if (!allowed) {
+            tooltipContent = formatMessage({
+                id: 'admin.access_control.table_editor.not_safe_to_use',
+                defaultMessage: 'Values for this attribute are managed by users and should not be used for access control. Please link attribute to AD/LDAP for use in access policies.',
+            });
+        } else if (isSynced) {
+            tooltipContent = formatMessage({
+                id: 'admin.access_control.table_editor.attribute_synced',
+                defaultMessage: 'This attribute is synced from an external source',
+            });
+        }
+
+        // Wrap in tooltip if needed
+        if (tooltipContent) {
+            return (
+                <WithTooltip
+                    key={name}
+                    title={tooltipContent}
+                >
+                    <div className='menu-item-tooltip-wrapper'>
+                        {menuItem}
+                    </div>
+                </WithTooltip>
+            );
+        }
+
+        return menuItem;
+    };
 
     return (
         <Menu.Container
@@ -157,103 +292,19 @@ const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled,
                 value={filter}
                 onChange={onFilterChange}
             />
-            {options.map((option) => {
-                const {name} = option;
-                const displayName = option.attrs?.display_name;
-
-                // hasSpaces checks the CEL identifier (name), not the display label.
-                // New fields cannot have spaces in name but leaving this check for backwards compatibility with grandfathered legacy fields.
-                const hasSpaces = name.includes(' ');
-                const isSynced = option.attrs?.ldap || option.attrs?.saml;
-                const isAdminManaged = option.attrs?.managed === 'admin';
-                const isProtected = option.attrs?.protected;
-                const allowed = isSynced || isAdminManaged || isProtected || enableUserManagedAttributes;
-
-                const menuItem = (
-                    <Menu.Item
-                        id={`attribute-${name}`}
-                        key={name}
-                        role='menuitemradio'
-                        forceCloseOnSelect={true}
-                        aria-checked={name === currentAttribute}
-                        onClick={hasSpaces ? undefined : () => handleAttributeChange(name)}
-                        labels={
-                            displayName ? (
-                                <AttributeLabel
-                                    displayName={displayName}
-                                    name={name}
-                                />
-                            ) : <span>{name}</span>
-                        }
-                        disabled={hasSpaces || !allowed}
-                        leadingElement={
-                            <AttributeIcon
-                                attribute={option}
-                                size={18}
-                            />
-                        }
-                        trailingElements={(
-                            <>
-                                {hasSpaces && (
-                                    <InformationOutlineIcon
-                                        size={18}
-                                    />
-                                )}
-                                {!allowed && !isSynced && (
-                                    <ShieldAlertOutlineIcon
-                                        size={18}
-                                        color='rgba(var(--center-channel-color-rgb), 0.5)'
-                                    />
-                                )}
-                                {isSynced && (
-                                    <SyncIcon
-                                        size={18}
-                                        color='rgba(var(--center-channel-color-rgb), 0.5)'
-                                    />
-                                )}
-                                {name === currentAttribute &&
-                                    <CheckIcon/>
-                                }
-                            </>
-                        )}
-                    />
-                );
-
-                // Determine tooltip content based on conditions
-                let tooltipContent = null;
-                if (hasSpaces) {
-                    tooltipContent = formatMessage({
-                        id: 'admin.access_control.table_editor.attribute_spaces_not_supported',
-                        defaultMessage: 'CEL is not compatible with variable names containing spaces',
-                    });
-                } else if (!allowed) {
-                    tooltipContent = formatMessage({
-                        id: 'admin.access_control.table_editor.not_safe_to_use',
-                        defaultMessage: 'Values for this attribute are managed by users and should not be used for access control. Please link attribute to AD/LDAP for use in access policies.',
-                    });
-                } else if (isSynced) {
-                    tooltipContent = formatMessage({
-                        id: 'admin.access_control.table_editor.attribute_synced',
-                        defaultMessage: 'This attribute is synced from an external source',
-                    });
-                }
-
-                // Wrap in tooltip if needed
-                if (tooltipContent) {
-                    return (
-                        <WithTooltip
-                            key={name}
-                            title={tooltipContent}
-                        >
-                            <div className='menu-item-tooltip-wrapper'>
-                                {menuItem}
-                            </div>
-                        </WithTooltip>
-                    );
-                }
-
-                return menuItem;
-            })}
+            {userOptions.map(renderOption)}
+            {userOptions.length > 0 && sessionOptions.length > 0 && (
+                <Menu.Separator/>
+            )}
+            {sessionOptions.length > 0 && (
+                <Menu.Title role='presentation'>
+                    {formatMessage({
+                        id: 'admin.access_control.table_editor.selector.session_attributes_header',
+                        defaultMessage: 'Session attributes',
+                    })}
+                </Menu.Title>
+            )}
+            {sessionOptions.map(renderOption)}
         </Menu.Container>
     );
 };

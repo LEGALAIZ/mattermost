@@ -5,16 +5,21 @@ import React from 'react';
 import type {ComponentProps} from 'react';
 
 import type {ChannelWithTeamData} from '@mattermost/types/channels';
+import {SESSION_ATTRIBUTES_GROUP_ID} from '@mattermost/types/properties';
+
+import TableEditor from 'components/admin_console/access_control/editors/table_editor/table_editor';
 
 import {renderWithContext, screen, userEvent, waitFor} from 'tests/react_testing_utils';
 import Constants from 'utils/constants';
 
 import TeamPolicyEditor from './team_policy_editor';
 
+const mockGetAccessControlFields = jest.fn();
+
 // Mock the hook — return no-op actions with proper promise returns
 jest.mock('hooks/useChannelAccessControlActions', () => ({
     useChannelAccessControlActions: () => ({
-        getAccessControlFields: jest.fn().mockResolvedValue({data: []}),
+        getAccessControlFields: mockGetAccessControlFields,
         getVisualAST: jest.fn().mockResolvedValue({data: null}),
         searchUsers: jest.fn().mockResolvedValue({data: {}}),
         getChannelPolicy: jest.fn().mockResolvedValue({data: null}),
@@ -27,6 +32,13 @@ jest.mock('hooks/useChannelAccessControlActions', () => ({
         updateAccessControlPoliciesActive: jest.fn().mockResolvedValue({data: {}}),
     }),
 }));
+
+jest.mock('components/admin_console/access_control/editors/table_editor/table_editor', () => {
+    const reactLib = require('react');
+    return jest.fn(() => reactLib.createElement('div', {'data-testid': 'table-editor'}));
+});
+
+const MockedTableEditor = TableEditor as jest.MockedFunction<typeof TableEditor>;
 
 describe('TeamPolicyEditor', () => {
     const publicChannel = {id: 'public-channel', team_id: 'team1', name: 'public-channel', display_name: 'Public Channel', type: Constants.OPEN_CHANNEL} as ChannelWithTeamData;
@@ -52,6 +64,10 @@ describe('TeamPolicyEditor', () => {
             updateAccessControlPoliciesActive: jest.fn().mockResolvedValue({}),
         },
     };
+
+    beforeEach(() => {
+        mockGetAccessControlFields.mockResolvedValue({data: []});
+    });
 
     afterEach(() => {
         jest.clearAllMocks();
@@ -219,5 +235,27 @@ describe('TeamPolicyEditor', () => {
         await waitFor(() => {
             expect(screen.queryByText('Membership policies affect public and private channels differently')).not.toBeInTheDocument();
         });
+    });
+
+    test('excludes session attributes from the attributes passed to the editor', async () => {
+        MockedTableEditor.mockClear();
+        mockGetAccessControlFields.mockResolvedValue({
+            data: [
+                {id: 'u1', name: 'department', group_id: 'custom_profile_attributes', attrs: {managed: 'admin'}},
+                {id: 's1', name: 'network_name', group_id: SESSION_ATTRIBUTES_GROUP_ID, attrs: {}},
+            ],
+        });
+
+        renderWithContext(<TeamPolicyEditor {...defaultProps}/>);
+
+        await waitFor(() => {
+            const calls = MockedTableEditor.mock.calls;
+            const lastCall = calls[calls.length - 1][0];
+            expect(lastCall.userAttributes.map((attr) => attr.name)).toContain('department');
+        });
+
+        const calls = MockedTableEditor.mock.calls;
+        const lastCall = calls[calls.length - 1][0];
+        expect(lastCall.userAttributes.map((attr) => attr.name)).not.toContain('network_name');
     });
 });
