@@ -7,11 +7,13 @@ import React, {useMemo} from 'react';
 import {FormattedMessage, defineMessages} from 'react-intl';
 import styled from 'styled-components';
 
-import {CheckboxMarkedCircleOutlineIcon, ChevronDownCircleOutlineIcon, DotsHorizontalIcon, MapMarkerOutlineIcon, MenuVariantIcon, UpdateIcon} from '@mattermost/compass-icons/components';
+import {CheckboxMarkedCircleOutlineIcon, ChevronDownCircleOutlineIcon, MapMarkerOutlineIcon, MenuVariantIcon, UpdateIcon} from '@mattermost/compass-icons/components';
 import type IconProps from '@mattermost/compass-icons/components/props';
 
 import PlatformIcons from './platform_icons';
+import SessionAttributesDotMenu from './session_attributes_dot_menu';
 import StatusChip from './status_chip';
+import type {StagedAttrs} from './use_session_attribute_edits';
 import type {SessionAttributeDisplayType, SessionAttributeField} from './utils';
 import {formatDuration, getDisplayType, getSessionAttrs, getSessionDisplayName, isServerSourced} from './utils';
 
@@ -29,9 +31,10 @@ const TYPE_ICONS: Record<SessionAttributeDisplayType, ComponentType<IconProps>> 
 
 type Props = {
     data: SessionAttributeField[];
+    onStageChange: (fieldId: string, partial: StagedAttrs) => void;
 };
 
-export default function SessionAttributesTable({data}: Props) {
+export default function SessionAttributesTable({data, onStageChange}: Props) {
     const rows = useMemo(
         () => [...data].sort((a, b) => ((a.attrs?.sort_order ?? 0) - (b.attrs?.sort_order ?? 0)) || a.name.localeCompare(b.name)),
         [data],
@@ -192,16 +195,19 @@ export default function SessionAttributesTable({data}: Props) {
                         />
                     </ColHeaderRight>
                 ),
-                cell: () => (
-                    <ActionsRoot data-testid='session-attribute-actions-placeholder'>
-                        <DotsHorizontalIcon size={18}/>
+                cell: ({row}) => (
+                    <ActionsRoot>
+                        <SessionAttributesDotMenu
+                            field={row.original}
+                            onStageChange={onStageChange}
+                        />
                     </ActionsRoot>
                 ),
                 enableHiding: false,
                 enableSorting: false,
             }),
         ];
-    }, []);
+    }, [onStageChange]);
 
     const table = useReactTable<SessionAttributeField>({
         data: rows,

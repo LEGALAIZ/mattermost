@@ -1,16 +1,18 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import {screen, waitFor} from '@testing-library/react';
+import {screen, waitFor, within} from '@testing-library/react';
 import React from 'react';
 
-import {SESSION_ATTRIBUTES_GROUP_ID} from '@mattermost/types/properties';
+import {SESSION_ATTRIBUTES_GROUP_ID, SESSION_ATTRIBUTES_OBJECT_TYPE} from '@mattermost/types/properties';
 import type {UserPropertyField} from '@mattermost/types/properties';
 import type {DeepPartial} from '@mattermost/types/utilities';
 
 import {Client4} from 'mattermost-redux/client';
 
-import {renderWithContext} from 'tests/react_testing_utils';
+import {confirmNavigation} from 'actions/admin_actions';
+
+import {renderWithContext, userEvent} from 'tests/react_testing_utils';
 import {TestHelper} from 'utils/test_helper';
 
 import type {GlobalState} from 'types/store';
@@ -171,5 +173,102 @@ describe('SessionAttributesPage', () => {
 
         const empty = await screen.findByText('No session attributes found.');
         expect(empty.closest('[aria-disabled="true"]')).toBeInTheDocument();
+    });
+
+    it('stages a TTL change and persists it on Save, reconciling the row', async () => {
+        const patchPropertyField = jest.spyOn(Client4, 'patchPropertyField');
+        getPropertyFields.mockResolvedValueOnce(representativeFields).mockResolvedValue([]);
+        patchPropertyField.mockImplementation((_group, _objectType, fieldId, patch) => Promise.resolve({
+            ...representativeFields[0],
+            id: fieldId,
+            attrs: {...representativeFields[0].attrs, ...(patch as {attrs: object}).attrs},
+        } as UserPropertyField));
+
+        renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
+
+        await screen.findByText('Client IP');
+
+        await userEvent.click(screen.getByTestId('session-attribute-dotmenu-session-ip_address'));
+        await userEvent.hover(screen.getByRole('menuitem', {name: /Time-to-live/}));
+        await userEvent.click(await screen.findByTestId('session-attribute-ttl-option-session-ip_address-3600'));
+
+        const saveButton = screen.getByRole('button', {name: /Save/});
+        expect(saveButton).toBeEnabled();
+
+        const stagedRow = screen.getAllByText('Client IP')[0].closest('tr') as HTMLElement;
+        expect(within(stagedRow).getByTestId('session-attribute-ttl')).toHaveTextContent('1h');
+
+        await userEvent.click(saveButton);
+
+        await waitFor(() => {
+            expect(patchPropertyField).toHaveBeenCalledWith(
+                SESSION_ATTRIBUTES_GROUP_ID,
+                SESSION_ATTRIBUTES_OBJECT_TYPE,
+                'session-ip_address',
+                {attrs: {ttl_seconds: 3600}},
+            );
+        });
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', {name: /Save/})).toBeDisabled();
+        });
+
+        const savedRow = screen.getAllByText('Client IP')[0].closest('tr') as HTMLElement;
+        expect(within(savedRow).getByTestId('session-attribute-ttl')).toHaveTextContent('1h');
+    });
+
+    it('blocks navigation while dirty and clears the guard after a successful Save', async () => {
+        const patchPropertyField = jest.spyOn(Client4, 'patchPropertyField');
+        getPropertyFields.mockResolvedValueOnce(representativeFields).mockResolvedValue([]);
+        patchPropertyField.mockImplementation((_group, _objectType, fieldId, patch) => Promise.resolve({
+            ...representativeFields[0],
+            id: fieldId,
+            attrs: {...representativeFields[0].attrs, ...(patch as {attrs: object}).attrs},
+        } as UserPropertyField));
+
+        const {store} = renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
+
+        await screen.findByText('Client IP');
+        expect(store.getState().views.admin.navigationBlock.blocked).toBe(false);
+
+        await userEvent.click(screen.getByTestId('session-attribute-dotmenu-session-ip_address'));
+        await userEvent.hover(screen.getByRole('menuitem', {name: /Time-to-live/}));
+        await userEvent.click(await screen.findByTestId('session-attribute-ttl-option-session-ip_address-3600'));
+
+        await waitFor(() => {
+            expect(store.getState().views.admin.navigationBlock.blocked).toBe(true);
+        });
+
+        await userEvent.click(screen.getByRole('button', {name: /Save/}));
+
+        await waitFor(() => {
+            expect(store.getState().views.admin.navigationBlock.blocked).toBe(false);
+        });
+    });
+
+    it('reverts a staged edit when Cancel is confirmed', async () => {
+        getPropertyFields.mockResolvedValueOnce(representativeFields).mockResolvedValue([]);
+
+        const {store} = renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
+
+        await screen.findByText('Client IP');
+
+        await userEvent.click(screen.getByTestId('session-attribute-dotmenu-session-ip_address'));
+        await userEvent.hover(screen.getByRole('menuitem', {name: /Time-to-live/}));
+        await userEvent.click(await screen.findByTestId('session-attribute-ttl-option-session-ip_address-3600'));
+
+        const stagedRow = screen.getAllByText('Client IP')[0].closest('tr') as HTMLElement;
+        expect(within(stagedRow).getByTestId('session-attribute-ttl')).toHaveTextContent('1h');
+        expect(screen.getByRole('button', {name: /Save/})).toBeEnabled();
+
+        // Cancel defers navigation while dirty; the discard-changes confirm invokes the stored revert callback.
+        await userEvent.click(screen.getByRole('button', {name: /Cancel/}));
+        store.dispatch(confirmNavigation());
+
+        await waitFor(() => {
+            const revertedRow = screen.getAllByText('Client IP')[0].closest('tr') as HTMLElement;
+            expect(within(revertedRow).getByTestId('session-attribute-ttl')).toHaveTextContent('5m');
+        });
+        expect(screen.getByRole('button', {name: /Save/})).toBeDisabled();
     });
 });
