@@ -9,6 +9,8 @@ import {
     DURATION_PRESETS_SECONDS,
     formatDuration,
     getDisplayType,
+    getSessionAttrs,
+    getSessionDisplayName,
     isServerSourced,
 } from './utils';
 
@@ -37,6 +39,17 @@ function makeField(overrides: Partial<SessionAttributeField> = {}): SessionAttri
 
 function options(...names: string[]): PropertyFieldOption[] {
     return names.map((name, index) => ({id: `opt-${index}`, name}));
+}
+
+function makeFieldWithAttrs(extra: Record<string, unknown>): SessionAttributeField {
+    return makeField({
+        attrs: {
+            sort_order: 0,
+            visibility: 'when_set',
+            value_type: '',
+            ...extra,
+        } as SessionAttributeField['attrs'],
+    });
 }
 
 describe('session_attributes utils', () => {
@@ -77,11 +90,12 @@ describe('session_attributes utils', () => {
     });
 
     describe('isServerSourced', () => {
-        it('is true for server-sourced names', () => {
+        it('is true for the request-derived server names', () => {
             expect(isServerSourced('ip_address')).toBe(true);
-            expect(isServerSourced('source_ip_address')).toBe(true);
-            expect(isServerSourced('user_agent')).toBe(true);
-            expect(isServerSourced('user_agent_browser')).toBe(true);
+            expect(isServerSourced('user_agent_platform')).toBe(true);
+            expect(isServerSourced('user_agent_os')).toBe(true);
+            expect(isServerSourced('user_agent_browser_name')).toBe(true);
+            expect(isServerSourced('user_agent_browser_version')).toBe(true);
         });
 
         it('is false for client-sourced names', () => {
@@ -89,9 +103,75 @@ describe('session_attributes utils', () => {
             expect(isServerSourced('client_type')).toBe(false);
         });
 
-        it('does not over-match names that merely contain the source tokens', () => {
+        it('does not flag the seeded but non-request-derived client_ip_address', () => {
+            expect(isServerSourced('client_ip_address')).toBe(false);
+        });
+
+        it('does not flag names that merely match a source token', () => {
+            expect(isServerSourced('source_ip_address')).toBe(false);
+            expect(isServerSourced('user_agent')).toBe(false);
             expect(isServerSourced('client_user_agent')).toBe(false);
             expect(isServerSourced('ip_address_country')).toBe(false);
+        });
+    });
+
+    describe('getSessionAttrs', () => {
+        it('reads valid tunables', () => {
+            const field = makeFieldWithAttrs({enabled: true, ttl_seconds: 300, grace_period_seconds: 60, platforms: ['desktop', 'browser']});
+            expect(getSessionAttrs(field)).toEqual({enabled: true, ttl_seconds: 300, grace_period_seconds: 60, platforms: ['desktop', 'browser']});
+        });
+
+        it('drops unknown/garbage platform tokens', () => {
+            const field = makeFieldWithAttrs({platforms: ['desktop', 'tablet', 'web', 'mobile', 42]});
+            expect(getSessionAttrs(field).platforms).toEqual(['desktop', 'mobile']);
+        });
+
+        it('treats non-array platforms as empty', () => {
+            const field = makeFieldWithAttrs({platforms: 'desktop'});
+            expect(getSessionAttrs(field).platforms).toEqual([]);
+        });
+
+        it('defaults non-number ttl/grace to 0', () => {
+            const stringDurations = makeFieldWithAttrs({ttl_seconds: '300', grace_period_seconds: null});
+            expect(getSessionAttrs(stringDurations).ttl_seconds).toBe(0);
+            expect(getSessionAttrs(stringDurations).grace_period_seconds).toBe(0);
+
+            const missingDurations = makeFieldWithAttrs({});
+            expect(getSessionAttrs(missingDurations).ttl_seconds).toBe(0);
+            expect(getSessionAttrs(missingDurations).grace_period_seconds).toBe(0);
+        });
+
+        it('treats missing or non-true enabled as disabled', () => {
+            expect(getSessionAttrs(makeFieldWithAttrs({})).enabled).toBe(false);
+            expect(getSessionAttrs(makeFieldWithAttrs({enabled: false})).enabled).toBe(false);
+            expect(getSessionAttrs(makeFieldWithAttrs({enabled: 'yes'})).enabled).toBe(false);
+        });
+
+        it('does not throw when attrs is absent', () => {
+            const field = makeField();
+            Reflect.deleteProperty(field, 'attrs');
+            expect(() => getSessionAttrs(field)).not.toThrow();
+            expect(getSessionAttrs(field)).toEqual({enabled: false, ttl_seconds: 0, grace_period_seconds: 0, platforms: []});
+        });
+    });
+
+    describe('getSessionDisplayName', () => {
+        it('uses a trimmed display_name when present', () => {
+            expect(getSessionDisplayName(makeFieldWithAttrs({display_name: '  Client IP  '}))).toBe('Client IP');
+        });
+
+        it('falls back to the field name when display_name is absent', () => {
+            expect(getSessionDisplayName(makeField({name: 'ip_address'}))).toBe('ip_address');
+        });
+
+        it('falls back to the field name when display_name is blank', () => {
+            expect(getSessionDisplayName(makeFieldWithAttrs({display_name: '   '}))).toBe('attribute');
+        });
+
+        it('does not throw when attrs is absent', () => {
+            const field = makeField({name: 'ip_address'});
+            Reflect.deleteProperty(field, 'attrs');
+            expect(getSessionDisplayName(field)).toBe('ip_address');
         });
     });
 

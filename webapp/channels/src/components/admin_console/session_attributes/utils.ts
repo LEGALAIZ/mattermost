@@ -9,7 +9,28 @@ export const SESSION_ATTRIBUTES_TARGET_TYPE = 'system';
 
 export type SessionAttributeDisplayType = 'String' | 'IP' | 'Boolean' | 'Version' | 'Enum';
 
-export const SERVER_SOURCED_NAMES = ['ip_address', 'user_agent'] as const;
+export type SessionPlatform = 'desktop' | 'mobile' | 'browser';
+
+export const SESSION_PLATFORMS: SessionPlatform[] = ['desktop', 'mobile', 'browser'];
+
+export type SessionAttributeTunables = {
+    enabled: boolean;
+    ttl_seconds: number;
+    grace_period_seconds: number;
+    platforms: SessionPlatform[];
+};
+
+// Mirrors the server's request-derived field names (SessionAttributesRequestDerivedFieldNames in
+// server/public/model/session_attributes.go): only these are populated by the server rather than the
+// client, so only these surface as "Server"-sourced. Notably client_ip_address is seeded but is NOT
+// request-derived, so it must not be flagged.
+export const SERVER_SOURCED_NAMES = [
+    'ip_address',
+    'user_agent_platform',
+    'user_agent_os',
+    'user_agent_browser_name',
+    'user_agent_browser_version',
+] as const;
 
 export const DURATION_PRESETS_SECONDS = [30, 60, 300, 3600, 86400] as const;
 
@@ -45,8 +66,7 @@ export function getDisplayType(field: SessionAttributeField): SessionAttributeDi
 }
 
 export function isServerSourced(name: string): boolean {
-    const lower = name.toLowerCase();
-    return lower === 'ip_address' || lower.endsWith('ip_address') || lower.startsWith('user_agent');
+    return (SERVER_SOURCED_NAMES as readonly string[]).includes(name.toLowerCase());
 }
 
 export function formatDuration(seconds: number): string {
@@ -65,4 +85,21 @@ export function formatDuration(seconds: number): string {
         return `${Math.round(seconds / 3600)}h`;
     }
     return `${Math.round(seconds / 86400)}d`;
+}
+
+// These keys are server-provided and absent from the typed attrs shape, so read them defensively.
+export function getSessionAttrs(field: SessionAttributeField): SessionAttributeTunables {
+    const attrs = (field.attrs ?? {}) as Record<string, unknown>;
+    const platforms = Array.isArray(attrs.platforms) ? (attrs.platforms as SessionPlatform[]).filter((platform) => SESSION_PLATFORMS.includes(platform)) : [];
+
+    return {
+        enabled: attrs.enabled === true,
+        ttl_seconds: typeof attrs.ttl_seconds === 'number' ? attrs.ttl_seconds : 0,
+        grace_period_seconds: typeof attrs.grace_period_seconds === 'number' ? attrs.grace_period_seconds : 0,
+        platforms,
+    };
+}
+
+export function getSessionDisplayName(field: SessionAttributeField): string {
+    return field.attrs?.display_name?.trim() || field.name;
 }

@@ -17,38 +17,58 @@ import type {GlobalState} from 'types/store';
 
 import SessionAttributesPage from './session_attributes';
 
-const baseField: UserPropertyField = {
-    id: 'session-field',
-    name: 'ip_address',
-    type: 'text',
-    group_id: SESSION_ATTRIBUTES_GROUP_ID,
-    create_at: 1736541716295,
-    update_at: 0,
-    delete_at: 0,
-    created_by: '',
-    updated_by: '',
-    target_id: '',
-    target_type: 'system',
-    object_type: 'session',
-    attrs: {
-        sort_order: 0,
-        visibility: 'when_set',
-        value_type: '',
-    },
+type ExtraAttrs = {
+    options?: Array<{name: string}>;
+    display_name?: string;
+    enabled?: boolean;
+    platforms?: string[];
+    ttl_seconds?: number;
+    grace_period_seconds?: number;
 };
 
-const sessionFields: UserPropertyField[] = [
-    {...baseField, id: 'session-field-0', name: 'ip_address'},
-    {...baseField, id: 'session-field-1', name: 'network_status'},
+function makeField(name: string, type: 'text' | 'select', sortOrder: number, extra: ExtraAttrs = {}): UserPropertyField {
+    const {options, ...tunables} = extra;
+
+    return {
+        id: `session-${name}`,
+        name,
+        type,
+        group_id: SESSION_ATTRIBUTES_GROUP_ID,
+        create_at: 1736541716295,
+        update_at: 0,
+        delete_at: 0,
+        created_by: '',
+        updated_by: '',
+        target_id: '',
+        target_type: 'system',
+        object_type: 'session',
+        attrs: {
+            sort_order: sortOrder,
+            visibility: 'when_set',
+            value_type: '',
+            ...(options ? {options} : {}),
+            ...tunables,
+        },
+    } as UserPropertyField;
+}
+
+const representativeFields: UserPropertyField[] = [
+    makeField('ip_address', 'text', 0, {
+        display_name: 'Client IP',
+        platforms: ['desktop', 'browser'],
+        ttl_seconds: 300,
+        grace_period_seconds: 60,
+        enabled: true,
+    }),
+    makeField('vpn_active', 'select', 1, {
+        options: [{name: 'true'}, {name: 'false'}],
+        platforms: ['desktop'],
+        enabled: false,
+    }),
 ];
 
-function getBaseState(seededFields: UserPropertyField[] = []): DeepPartial<GlobalState> {
+function getBaseState(): DeepPartial<GlobalState> {
     const currentUser = TestHelper.getUserMock();
-
-    const byId: Record<string, UserPropertyField> = {};
-    seededFields.forEach((field) => {
-        byId[field.id] = field;
-    });
 
     return {
         entities: {
@@ -58,17 +78,11 @@ function getBaseState(seededFields: UserPropertyField[] = []): DeepPartial<Globa
                     [currentUser.id]: currentUser,
                 },
             },
-            general: {
-
-            },
+            general: {},
             properties: {
                 fields: {
-                    byId,
-                    byObjectType: {
-                        session: {
-                            session_attributes: byId,
-                        },
-                    },
+                    byId: {},
+                    byObjectType: {},
                 },
             },
         },
@@ -80,18 +94,11 @@ describe('SessionAttributesPage', () => {
 
     beforeEach(() => {
         getPropertyFields.mockReset();
-        getPropertyFields.mockResolvedValueOnce(sessionFields).mockResolvedValue([]);
-    });
-
-    it('renders the configure intro on mount', async () => {
-        renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
-
-        expect(await screen.findByRole('heading', {name: 'Configure session attributes'})).toBeInTheDocument();
-        expect(screen.getByText('Session attributes are evaluated per session and can be used in access control policies.')).toBeInTheDocument();
-        expect(screen.getByTestId('session_attributes_table_placeholder')).toBeInTheDocument();
     });
 
     it('fetches the session attribute fields once on mount', async () => {
+        getPropertyFields.mockResolvedValueOnce(representativeFields).mockResolvedValue([]);
+
         renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
 
         await waitFor(() => {
@@ -109,20 +116,60 @@ describe('SessionAttributesPage', () => {
         expect(initialFetches).toHaveLength(1);
     });
 
-    it('resolves the seeded fields through the selector', async () => {
-        renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState(sessionFields));
+    it('shows the loading state before fields resolve', async () => {
+        getPropertyFields.mockResolvedValueOnce(representativeFields).mockResolvedValue([]);
 
-        const placeholder = await screen.findByTestId('session_attributes_table_placeholder');
-        expect(placeholder).toHaveAttribute('data-count', String(sessionFields.length));
+        renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
+
+        expect(screen.getByText('Loading')).toBeInTheDocument();
+
+        await waitFor(() => {
+            expect(screen.queryByText('Loading')).not.toBeInTheDocument();
+        });
     });
 
-    it('respects the disabled prop and renders no config toggles', async () => {
+    it('renders the table fed by the fetched fields', async () => {
+        getPropertyFields.mockResolvedValueOnce(representativeFields).mockResolvedValue([]);
+
+        renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
+
+        expect(await screen.findByText('Client IP')).toBeInTheDocument();
+
+        const typeLabels = screen.getAllByTestId('session-attribute-type').map((cell) => cell.textContent);
+        expect(typeLabels).toContain('IP');
+        expect(typeLabels).toContain('Boolean');
+
+        const statuses = screen.getAllByTestId('session-attribute-status').map((cell) => cell.textContent);
+        expect(statuses).toContain('Enabled');
+        expect(statuses).toContain('Disabled');
+
+        expect(screen.getAllByTestId('session-attribute-platforms').length).toBe(representativeFields.length);
+    });
+
+    it('shows the empty state when there are no fields', async () => {
+        getPropertyFields.mockResolvedValue([]);
+
+        renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
+
+        expect(await screen.findByText('No session attributes found.')).toBeInTheDocument();
+        expect(screen.queryByRole('columnheader', {name: 'Display Name'})).not.toBeInTheDocument();
+    });
+
+    it('renders the configure intro on mount', async () => {
+        getPropertyFields.mockResolvedValueOnce(representativeFields).mockResolvedValue([]);
+
+        renderWithContext(<SessionAttributesPage disabled={false}/>, getBaseState());
+
+        expect(await screen.findByRole('heading', {name: 'Configure session attributes'})).toBeInTheDocument();
+        expect(screen.getByText('Session attributes are evaluated per session and can be used in access control policies.')).toBeInTheDocument();
+    });
+
+    it('marks the table region advisory-disabled when the page is disabled', async () => {
+        getPropertyFields.mockResolvedValue([]);
+
         renderWithContext(<SessionAttributesPage disabled={true}/>, getBaseState());
 
-        const placeholder = await screen.findByTestId('session_attributes_table_placeholder');
-        expect(placeholder).toHaveAttribute('aria-disabled', 'true');
-
-        expect(screen.queryByText('Trust proxy device identity header')).not.toBeInTheDocument();
-        expect(screen.queryByText('Enforce device ID consistency')).not.toBeInTheDocument();
+        const empty = await screen.findByText('No session attributes found.');
+        expect(empty.closest('[aria-disabled="true"]')).toBeInTheDocument();
     });
 });
