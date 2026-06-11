@@ -95,7 +95,12 @@ describe('SessionAttributesTable', () => {
     });
 
     it('renders all column headers', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         for (const header of ['Display Name', 'Name', 'Type', 'Platform', 'TTL', 'Grace', 'Status', 'Actions']) {
             expect(screen.getByRole('columnheader', {name: header})).toBeInTheDocument();
@@ -103,7 +108,12 @@ describe('SessionAttributesTable', () => {
     });
 
     it('maps each field to its display type', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         const labels = screen.getAllByTestId('session-attribute-type').map((cell) => cell.textContent);
 
@@ -122,7 +132,12 @@ describe('SessionAttributesTable', () => {
     });
 
     it('shows the Server badge only on request-derived fields', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         expect(screen.getAllByTestId('session-attribute-server-label')).toHaveLength(2);
 
@@ -136,7 +151,12 @@ describe('SessionAttributesTable', () => {
     });
 
     it('reflects attrs.platforms in the platform icons', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         const platforms = within(rowFor('Client IP')).getByTestId('session-attribute-platforms');
 
@@ -146,7 +166,12 @@ describe('SessionAttributesTable', () => {
     });
 
     it('reflects attrs.enabled in the status chip', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         const enabled = within(rowFor('Client IP')).getByTestId('session-attribute-status');
         expect(enabled).toHaveTextContent('Enabled');
@@ -158,7 +183,12 @@ describe('SessionAttributesTable', () => {
     });
 
     it('formats TTL and grace durations', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         const row = rowFor('Client IP');
         expect(within(row).getByTestId('session-attribute-ttl')).toHaveTextContent('5m');
@@ -166,14 +196,24 @@ describe('SessionAttributesTable', () => {
     });
 
     it('falls back to the field name when display_name is absent', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         expect(within(rowFor('Client IP')).getByTestId('session-attribute-display-name')).toHaveTextContent('Client IP');
         expect(within(rowFor('os_version')).getByTestId('session-attribute-display-name')).toHaveTextContent('os_version');
     });
 
     it('renders default/zero TTL, grace and platforms sensibly', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         const row = rowFor('os_version');
         expect(within(row).getByTestId('session-attribute-ttl')).toHaveTextContent('0s');
@@ -185,7 +225,12 @@ describe('SessionAttributesTable', () => {
     });
 
     it('renders an interactive kebab button per row', () => {
-        renderWithContext(<SessionAttributesTable data={fields} onStageChange={onStageChange}/>);
+        renderWithContext(
+            <SessionAttributesTable
+                data={fields}
+                onStageChange={onStageChange}
+            />,
+        );
 
         const buttons = fields.map((field) => screen.getByTestId(`session-attribute-dotmenu-${field.id}`));
         expect(buttons).toHaveLength(fields.length);
