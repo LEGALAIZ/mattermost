@@ -98,13 +98,13 @@ describe('AttributeSelectorMenu', () => {
 
         fireEvent.click(screen.getByTestId('attributeSelectorMenuButton'));
 
-        const sessionItem = document.getElementById('attribute-ip_address');
+        const sessionItem = document.getElementById('attribute-f2');
         expect(sessionItem).toBeInTheDocument();
         expect(sessionItem).not.toHaveClass('Mui-disabled');
         expect(sessionItem).not.toHaveAttribute('aria-disabled', 'true');
 
         fireEvent.click(sessionItem as HTMLElement);
-        expect(baseProps.onChange).toHaveBeenCalledWith('ip_address');
+        expect(baseProps.onChange).toHaveBeenCalledWith('f2');
     });
 
     test('does not render the Session attributes header when no session attributes are present', () => {

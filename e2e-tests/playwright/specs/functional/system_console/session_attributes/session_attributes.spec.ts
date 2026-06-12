@@ -6,8 +6,12 @@
  *
  * Covers the seeded session-attribute listing table, per-row TTL/Grace/Enable/
  * Disable tuning with staged Save, the unsaved-changes navigation guard, and the
- * ABAC picker polarity (session attributes appear in permission-policy editors
- * and are absent from membership-policy editors).
+ * ABAC picker polarity (enabled session attributes appear in permission-policy
+ * editors and are absent from membership-policy editors).
+ *
+ * The CEL autocomplete endpoint does not return session attributes; the webapp
+ * fetches the enabled ones separately and merges them into the permission-policy
+ * pickers client-side, where they generate `user.session.<name>` references.
  *
  * The session_attributes Property group is gated server-side: it requires an
  * Enterprise Advanced license (returns HTTP 501 otherwise) and the
@@ -234,10 +238,16 @@ test.describe('System Console - Session Attributes', () => {
 
             const sessionField = findFieldByName(fields, 'ip_address');
 
+            // A second session attribute kept DISABLED: the merge lists enabled
+            // attributes only, so this one must never reach the picker.
+            const disabledSessionField = findFieldByName(fields, 'vpn_active');
+
             try {
-                // # Ensure prerequisites: a user attribute, an enabled session attribute, ABAC on
+                // # Ensure prerequisites: a user attribute, ABAC on, one session
+                //   attribute enabled and a second one explicitly disabled.
                 await ensureUserAttributes(adminClient, ['Department']);
                 await patchSessionAttribute(adminClient, sessionField.id, {enabled: true});
+                await patchSessionAttribute(adminClient, disabledSessionField.id, {enabled: false});
                 await enableABAC(page);
 
                 // ── Permission policy editor: session attribute IS available ──
@@ -254,11 +264,17 @@ test.describe('System Console - Session Attributes', () => {
                 const permissionMenu = page.getByRole('menu', {name: 'Select attribute'});
                 await expect(permissionMenu).toBeVisible();
 
-                // * Verify the SESSION ATTRIBUTES section and the session attribute are present
+                // * Verify the SESSION ATTRIBUTES section and the enabled session attribute are present
                 await expect(permissionMenu.getByText('Session attributes', {exact: true})).toBeVisible();
                 await expect(permissionMenu.locator('#attribute-ip_address')).toBeVisible();
 
+                // * Verify the DISABLED session attribute is absent (enabled-only filter)
+                await expect(permissionMenu.locator(`#attribute-${disabledSessionField.name}`)).toHaveCount(0);
+
                 // ── Membership policy editor: session attribute is NOT available ──
+                //
+                // Done before building a permission expression so this navigation
+                // isn't blocked by the unsaved-changes guard.
 
                 // # Open a new membership policy and add an attribute row
                 await page.goto('/admin_console/system_attributes/membership_policies');
@@ -280,8 +296,39 @@ test.describe('System Console - Session Attributes', () => {
                 // * Verify session attributes are absent from the membership picker
                 await expect(membershipMenu.getByText('Session attributes', {exact: true})).toHaveCount(0);
                 await expect(membershipMenu.locator('#attribute-ip_address')).toHaveCount(0);
+
+                // ── CEL path: a picked session attribute generates user.session.<name> ──
+                //
+                // Last step: building an expression dirties the form, so any
+                // navigation must already be complete.
+
+                // # Open a fresh permission policy, pick the session attribute, set a value
+                await page.goto('/admin_console/system_attributes/permission_policies');
+                await page.waitForLoadState('networkidle');
+                await page.getByRole('button', {name: 'Add policy'}).click();
+                await page.waitForLoadState('networkidle');
+                await page.getByPlaceholder('Add a unique policy name').fill(`PP CEL ${pw.random.id()}`);
+
+                await openAttributePicker(page);
+
+                const celMenu = page.getByRole('menu', {name: 'Select attribute'});
+                await expect(celMenu).toBeVisible();
+                await celMenu.locator('#attribute-ip_address').click();
+
+                const valueInput = page.locator('.values-editor__simple-input').first();
+                await valueInput.click();
+                await valueInput.fill('10.0.0.1');
+                await valueInput.press('Enter');
+
+                // # Switch to Advanced (CEL) mode
+                await page.getByRole('button', {name: 'Switch to Advanced Mode'}).click();
+
+                // * Verify the generated CEL uses the session namespace, not user.attributes
+                await expect(page.locator('.cel-editor')).toContainText('user.session.ip_address');
+                await expect(page.locator('.cel-editor')).not.toContainText('user.attributes.ip_address');
             } finally {
                 await restoreSessionAttribute(adminClient, sessionField);
+                await restoreSessionAttribute(adminClient, disabledSessionField);
             }
         },
     );
@@ -297,6 +344,14 @@ async function openAttributePicker(page: Page): Promise<void> {
     await expect(addAttributeButton).toBeEnabled({timeout: 15000});
     await addAttributeButton.click();
 
-    const selectorButton = page.getByTestId('attributeSelectorMenuButton').first();
-    await selectorButton.click();
+    // Adding a row auto-opens the attribute menu. Only click the selector
+    // button to open it when the auto-open didn't fire — clicking while the
+    // menu is already open would land on its backdrop and be intercepted.
+    const menu = page.getByRole('menu', {name: 'Select attribute'});
+    try {
+        await expect(menu).toBeVisible({timeout: 3000});
+    } catch {
+        await page.getByTestId('attributeSelectorMenuButton').first().click();
+        await expect(menu).toBeVisible();
+    }
 }

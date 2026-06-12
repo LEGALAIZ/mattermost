@@ -75,12 +75,12 @@ export function isMultiselectOperator(op: string): boolean {
 export function isSimpleCondition(s: string): boolean {
     const trimmed = s.trim();
     return Boolean(
-        trimmed.match(/^user\.attributes\.\w+\s*(==|!=)\s*['"][^'"]*['"]$/) ||
-        trimmed.match(/^user\.attributes\.\w+\s+in\s+\[.*?\]$/) ||
-        trimmed.match(/^((\[.*?\])|['"][^'"]*['"])\s+in\s+user\.attributes\.\w+$/) ||
-        trimmed.match(/^user\.attributes\.\w+\.startsWith\(['"][^'"]*['"].*?\)$/) ||
-        trimmed.match(/^user\.attributes\.\w+\.endsWith\(['"][^'"]*['"].*?\)$/) ||
-        trimmed.match(/^user\.attributes\.\w+\.contains\(['"][^'"]*['"].*?\)$/),
+        trimmed.match(/^user\.(?:attributes|session)\.\w+\s*(==|!=)\s*['"][^'"]*['"]$/) ||
+        trimmed.match(/^user\.(?:attributes|session)\.\w+\s+in\s+\[.*?\]$/) ||
+        trimmed.match(/^((\[.*?\])|['"][^'"]*['"])\s+in\s+user\.(?:attributes|session)\.\w+$/) ||
+        trimmed.match(/^user\.(?:attributes|session)\.\w+\.startsWith\(['"][^'"]*['"].*?\)$/) ||
+        trimmed.match(/^user\.(?:attributes|session)\.\w+\.endsWith\(['"][^'"]*['"].*?\)$/) ||
+        trimmed.match(/^user\.(?:attributes|session)\.\w+\.contains\(['"][^'"]*['"].*?\)$/),
     );
 }
 
@@ -92,7 +92,7 @@ export function isMultiselectOrGroup(s: string): boolean {
     const inner = trimmed.slice(1, -1);
     return inner.split('||').every((part) => {
         const p = part.trim();
-        return Boolean(p.match(/^['"][^'"]*['"]\s+in\s+user\.attributes\.\w+$/));
+        return Boolean(p.match(/^['"][^'"]*['"]\s+in\s+user\.(?:attributes|session)\.\w+$/));
     });
 }
 
@@ -128,6 +128,34 @@ export function hasUsableAttributes(
 // membership rules, so strip them before they reach the editors.
 export function excludeSessionAttributes(fields: UserPropertyField[]): UserPropertyField[] {
     return fields.filter((field) => !isSessionAttributeField(field));
+}
+
+// CEL namespaces. CPA/user attributes are referenced as user.attributes.<name>;
+// session attributes as user.session.<name> (the server convention).
+export const USER_ATTRIBUTE_CEL_PREFIX = 'user.attributes.';
+export const SESSION_ATTRIBUTE_CEL_PREFIX = 'user.session.';
+
+// The CEL namespace is chosen by object_type, not by group id.
+export function celPrefixForField(field: Pick<UserPropertyField, 'object_type'>): string {
+    return isSessionAttributeField(field) ? SESSION_ATTRIBUTE_CEL_PREFIX : USER_ATTRIBUTE_CEL_PREFIX;
+}
+
+// Permission surfaces only. Appends enabled session attributes after the user
+// attributes. Dedups by id and by object_type:name in case the autocomplete
+// endpoint ever starts returning session attributes again. Returns the original
+// array when there's nothing to add to preserve referential stability.
+export function mergeSessionAttributes(
+    autocomplete: UserPropertyField[],
+    sessionFields: UserPropertyField[],
+): UserPropertyField[] {
+    if (sessionFields.length === 0) {
+        return autocomplete;
+    }
+    const seenIds = new Set(autocomplete.map((field) => field.id));
+    const seenKeys = new Set(autocomplete.map((field) => `${field.object_type}:${field.name}`));
+    const additions = sessionFields.filter(
+        (field) => !seenIds.has(field.id) && !seenKeys.has(`${field.object_type}:${field.name}`));
+    return additions.length ? [...autocomplete, ...additions] : autocomplete;
 }
 
 interface TestButtonProps {

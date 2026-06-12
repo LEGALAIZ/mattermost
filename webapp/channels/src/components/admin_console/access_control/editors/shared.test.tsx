@@ -7,7 +7,7 @@ import type {UserPropertyField} from '@mattermost/types/properties';
 
 import {renderWithContext, screen} from 'tests/react_testing_utils';
 
-import {TestButton, excludeSessionAttributes, hasUsableAttributes} from './shared';
+import {TestButton, celPrefixForField, excludeSessionAttributes, hasUsableAttributes, isSimpleCondition, isSimpleExpression, mergeSessionAttributes} from './shared';
 
 describe('TestButton', () => {
     const baseProps = {
@@ -483,5 +483,95 @@ describe('excludeSessionAttributes', () => {
         ];
 
         expect(excludeSessionAttributes(fields)).toEqual([]);
+    });
+});
+
+describe('celPrefixForField', () => {
+    test('session field resolves to the user.session namespace', () => {
+        expect(celPrefixForField({object_type: 'session'})).toBe('user.session.');
+    });
+
+    test('user field resolves to the user.attributes namespace', () => {
+        expect(celPrefixForField({object_type: 'user'})).toBe('user.attributes.');
+    });
+
+    test('empty object type resolves to the user.attributes namespace', () => {
+        expect(celPrefixForField({object_type: ''})).toBe('user.attributes.');
+    });
+});
+
+describe('mergeSessionAttributes', () => {
+    const CPA_GROUP_UUID = '6t9dj3c7bpdx8cercb9m9u6nre';
+    const SESSION_GROUP_UUID = 'nkpkzni6yjrjt8uktpbwkagoth';
+
+    const makeField = (id: string, objectType: string, name = id): UserPropertyField => ({
+        id,
+        name,
+        type: 'text',
+        group_id: objectType === 'session' ? SESSION_GROUP_UUID : CPA_GROUP_UUID,
+        target_id: '',
+        target_type: objectType === 'session' ? 'system' : '',
+        object_type: objectType,
+        attrs: {
+            sort_order: 0,
+            visibility: 'always',
+            value_type: '',
+        },
+        create_at: 0,
+        update_at: 0,
+        delete_at: 0,
+        created_by: '',
+        updated_by: '',
+    });
+
+    test('appends session fields after the user attributes', () => {
+        const userField = makeField('department', 'user');
+        const sessionField = makeField('ip_address', 'session');
+
+        expect(mergeSessionAttributes([userField], [sessionField])).toEqual([userField, sessionField]);
+    });
+
+    test('returns the same reference when there are no session fields', () => {
+        const autocomplete = [makeField('department', 'user')];
+
+        expect(mergeSessionAttributes(autocomplete, [])).toBe(autocomplete);
+    });
+
+    test('returns the same reference when every session field is already present by id', () => {
+        const sessionField = makeField('ip_address', 'session');
+        const autocomplete = [makeField('department', 'user'), sessionField];
+
+        expect(mergeSessionAttributes(autocomplete, [sessionField])).toBe(autocomplete);
+    });
+
+    test('dedups by object_type:name even when ids differ', () => {
+        const autocomplete = [makeField('aaa', 'session', 'ip_address')];
+        const duplicateByName = makeField('bbb', 'session', 'ip_address');
+
+        expect(mergeSessionAttributes(autocomplete, [duplicateByName])).toBe(autocomplete);
+    });
+});
+
+describe('isSimpleExpression / isSimpleCondition with session attributes', () => {
+    test('session equality condition is simple', () => {
+        expect(isSimpleCondition('user.session.ip_address == "10.0.0.1"')).toBe(true);
+        expect(isSimpleExpression('user.session.ip_address == "10.0.0.1"')).toBe(true);
+    });
+
+    test('scalar in session attribute is simple', () => {
+        expect(isSimpleCondition('"x" in user.session.foo')).toBe(true);
+    });
+
+    test('session in list is simple', () => {
+        expect(isSimpleCondition('user.session.foo in ["a", "b"]')).toBe(true);
+    });
+
+    test('mixed user and session conditions are simple', () => {
+        expect(isSimpleExpression('user.attributes.dept == "Eng" && user.session.ip_address == "10.0.0.1"')).toBe(true);
+    });
+
+    test('unknown namespaces are not simple', () => {
+        expect(isSimpleCondition('user.bogus.x == "y"')).toBe(false);
+        expect(isSimpleExpression('user.bogus.x == "y"')).toBe(false);
     });
 });

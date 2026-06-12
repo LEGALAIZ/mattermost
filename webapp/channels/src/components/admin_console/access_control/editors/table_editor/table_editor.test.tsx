@@ -24,6 +24,7 @@ describe('parseExpression', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'department',
+                attribute_object_type: 'user',
                 operator: 'is',
                 values: ['Engineering'],
                 attribute_type: 'text',
@@ -48,6 +49,7 @@ describe('parseExpression', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'location',
+                attribute_object_type: 'user',
                 operator: 'in',
                 values: ['US', 'CA'],
                 attribute_type: 'text',
@@ -72,6 +74,7 @@ describe('parseExpression', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'role',
+                attribute_object_type: 'user',
                 operator: 'is not',
                 values: ['guest'],
                 attribute_type: 'text',
@@ -96,6 +99,7 @@ describe('parseExpression', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'email',
+                attribute_object_type: 'user',
                 operator: 'starts with',
                 values: ['admin'],
                 attribute_type: 'text',
@@ -127,6 +131,7 @@ describe('parseExpression', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'email',
+                attribute_object_type: 'user',
                 operator: 'starts with',
                 values: ['admin'],
                 attribute_type: 'text',
@@ -134,6 +139,7 @@ describe('parseExpression', () => {
             },
             {
                 attribute: 'department',
+                attribute_object_type: 'user',
                 operator: 'is',
                 values: ['Engineering'],
                 attribute_type: 'text',
@@ -158,6 +164,7 @@ describe('parseExpression', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'department',
+                attribute_object_type: 'user',
                 operator: 'is',
                 values: ['foo'],
                 attribute_type: 'text',
@@ -228,6 +235,7 @@ describe('parseExpression with multiselect attributes', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'skills',
+                attribute_object_type: 'user',
                 operator: 'has all of',
                 values: ['JavaScript', 'Python'],
                 attribute_type: 'multiselect',
@@ -252,6 +260,7 @@ describe('parseExpression with multiselect attributes', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'programs',
+                attribute_object_type: 'user',
                 operator: 'has any of',
                 values: ['Dragon', 'Phoenix'],
                 attribute_type: 'multiselect',
@@ -276,12 +285,56 @@ describe('parseExpression with multiselect attributes', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'skills',
+                attribute_object_type: 'user',
                 operator: 'has all of',
                 values: ['JavaScript'],
                 attribute_type: 'multiselect',
                 hasMaskedValues: false,
             },
         ]);
+    });
+});
+
+describe('parseExpression with session attributes', () => {
+    test('round-trips a user.session.* node into a session row', () => {
+        const ast: AccessControlVisualAST = {
+            conditions: [
+                {
+                    attribute: 'user.session.ip_address',
+                    operator: '==',
+                    value: '10.0.0.1',
+                    value_type: 0,
+                    attribute_type: 'text',
+                },
+            ],
+        };
+
+        expect(parseExpression(ast)).toEqual([
+            {
+                attribute: 'ip_address',
+                attribute_object_type: 'session',
+                operator: 'is',
+                values: ['10.0.0.1'],
+                attribute_type: 'text',
+                hasMaskedValues: false,
+            },
+        ]);
+    });
+
+    test('still throws on an unknown namespace', () => {
+        const ast: AccessControlVisualAST = {
+            conditions: [
+                {
+                    attribute: 'user.bogus.ip_address',
+                    operator: '==',
+                    value: '10.0.0.1',
+                    value_type: 0,
+                    attribute_type: 'text',
+                },
+            ],
+        };
+
+        expect(() => parseExpression(ast)).toThrow('Unknown attribute: user.bogus.ip_address');
     });
 });
 
@@ -508,6 +561,68 @@ describe('rowToCEL', () => {
             hasMaskedValues: true,
         });
         expect(cel).toBe('user.attributes.program in ["Alpha"]');
+    });
+
+    // --- Session-attribute namespace tests ---
+
+    test('session row emits the user.session namespace for equality', () => {
+        const cel = rowToCEL({
+            attribute: 'ip_address',
+            attribute_object_type: 'session',
+            operator: 'is',
+            values: ['10.0.0.1'],
+            attribute_type: 'text',
+            hasMaskedValues: false,
+        });
+        expect(cel).toBe('user.session.ip_address == "10.0.0.1"');
+    });
+
+    test('session row emits the user.session namespace for in / startsWith / masked variants', () => {
+        expect(rowToCEL({
+            attribute: 'ip_range',
+            attribute_object_type: 'session',
+            operator: 'in',
+            values: ['a', 'b'],
+            attribute_type: 'select',
+            hasMaskedValues: false,
+        })).toBe('user.session.ip_range in ["a", "b"]');
+
+        expect(rowToCEL({
+            attribute: 'platform',
+            attribute_object_type: 'session',
+            operator: 'starts with',
+            values: ['mac'],
+            attribute_type: 'text',
+            hasMaskedValues: false,
+        })).toBe('user.session.platform.startsWith("mac")');
+
+        expect(rowToCEL({
+            attribute: 'ip_address',
+            attribute_object_type: 'session',
+            operator: 'in',
+            values: [],
+            attribute_type: 'text',
+            hasMaskedValues: true,
+        })).toBe('user.session.ip_address in []');
+    });
+
+    test('user row (object type undefined or "user") keeps the user.attributes namespace', () => {
+        expect(rowToCEL({
+            attribute: 'department',
+            operator: 'is',
+            values: ['Eng'],
+            attribute_type: 'text',
+            hasMaskedValues: false,
+        })).toBe('user.attributes.department == "Eng"');
+
+        expect(rowToCEL({
+            attribute: 'department',
+            attribute_object_type: 'user',
+            operator: 'is',
+            values: ['Eng'],
+            attribute_type: 'text',
+            hasMaskedValues: false,
+        })).toBe('user.attributes.department == "Eng"');
     });
 });
 

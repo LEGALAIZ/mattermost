@@ -27,10 +27,11 @@ import AdminHeader from 'components/widgets/admin_console/admin_header';
 import TextSetting from 'components/widgets/settings/text_setting';
 
 import {useChannelAccessControlActions} from 'hooks/useChannelAccessControlActions';
+import {useEnabledSessionAttributeFields} from 'hooks/useEnabledSessionAttributeFields';
 import {getHistory} from 'utils/browser_history';
 
 import CELEditor from '../../access_control/editors/cel_editor/editor';
-import {hasUsableAttributes} from '../../access_control/editors/shared';
+import {hasUsableAttributes, isSimpleExpression, mergeSessionAttributes} from '../../access_control/editors/shared';
 import TableEditor from '../../access_control/editors/table_editor/table_editor';
 
 import './permission_policy_details.scss';
@@ -147,24 +148,15 @@ function PermissionPolicyDetails({
     // so the editor stays usable even without any configured user attributes when SessionAttributes is on.
     const noUsableAttributes = attributesLoaded && !sessionAttributesEnabled && !hasUsableAttributes(autocompleteResult, accessControlSettings.EnableUserManagedAttributes);
 
+    const sessionFields = useEnabledSessionAttributeFields(sessionAttributesEnabled);
+    const mergedAttributes = useMemo(
+        () => mergeSessionAttributes(autocompleteResult, sessionFields),
+        [autocompleteResult, sessionFields],
+    );
+
     useEffect(() => {
         loadPage().finally(() => setPageLoaded(true));
     }, [policyId]);
-
-    const isSimpleExpression = (expr: string): boolean => {
-        if (!expr) {
-            return true;
-        }
-        return expr.split('&&').every((condition) => {
-            const trimmed = condition.trim();
-            return trimmed.match(/^user\.attributes\.\w+\s*(==|!=)\s*['"][^'"]*['"]$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\s+in\s+\[.*?\]$/) ||
-                   trimmed.match(/^((\[.*?\])||['"][^'"]*['"].*?)\s+in\s+user\.attributes\.\w+$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.startsWith\(['"][^'"]*['"].*?\)$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.endsWith\(['"][^'"]*['"].*?\)$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.contains\(['"][^'"]*['"].*?\)$/);
-        });
-    };
 
     const loadPage = async (): Promise<void> => {
         const fieldsPromise = abacActions.getAccessControlFields('', 100).then((result) => {
@@ -308,7 +300,7 @@ function PermissionPolicyDetails({
     );
 
     const filteredAttributes = useMemo(() => {
-        return autocompleteResult.filter((attr) => {
+        return mergedAttributes.filter((attr) => {
             if (isSessionAttributeField(attr)) {
                 return true;
             }
@@ -320,7 +312,7 @@ function PermissionPolicyDetails({
             const isProtected = attr.attrs?.protected;
             return isSynced || isAdminManaged || isProtected;
         });
-    }, [autocompleteResult, accessControlSettings.EnableUserManagedAttributes]);
+    }, [mergedAttributes, accessControlSettings.EnableUserManagedAttributes]);
 
     return (
         <div className='wrapper--fixed PermissionPolicySettings'>
@@ -561,6 +553,7 @@ function PermissionPolicyDetails({
                                             userAttributes={filteredAttributes.map((attr) => ({
                                                 attribute: attr.name,
                                                 values: [],
+                                                objectType: attr.object_type,
                                             }))}
 
                                             // Both editor modes route the test
@@ -615,7 +608,7 @@ function PermissionPolicyDetails({
                                             }}
                                             onValidate={() => {}}
                                             disabled={noUsableAttributes}
-                                            userAttributes={autocompleteResult}
+                                            userAttributes={mergedAttributes}
                                             onParseError={() => {
                                                 setEditorMode('cel');
                                             }}
@@ -816,7 +809,7 @@ function PermissionPolicyDetails({
                             }}
                             targetRole={selectedRole}
                             targetScope='system'
-                            accessControlFields={autocompleteResult}
+                            accessControlFields={mergedAttributes}
                         />
                     )}
 

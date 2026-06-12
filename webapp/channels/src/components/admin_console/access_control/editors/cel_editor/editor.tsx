@@ -6,6 +6,7 @@ import React, {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {FormattedMessage, useIntl} from 'react-intl';
 
 import type {AccessControlTestResult} from '@mattermost/types/access_control';
+import {SESSION_ATTRIBUTES_OBJECT_TYPE} from '@mattermost/types/properties';
 
 import {searchUsersForExpression} from 'mattermost-redux/actions/access_control';
 import {debounce} from 'mattermost-redux/actions/helpers';
@@ -68,6 +69,31 @@ const MONACO_EDITOR_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions 
     contextmenu: false,
 };
 
+type CELUserAttribute = {
+    attribute: string;
+    values: string[];
+
+    // 'session' marks a user.session.* attribute; anything else is user.attributes.*
+    objectType?: string;
+};
+
+// Builds the Monaco autocomplete schema. CPA/user attributes are offered under
+// user.attributes.*; enabled session attributes (objectType 'session') are
+// offered under user.session.* — the session bucket only appears when present.
+export function buildCELSchemas(userAttributes: CELUserAttribute[]): Record<string, string[]> {
+    const cleanNames = (attrs: CELUserAttribute[]) => attrs.
+        map((attr) => attr.attribute).
+        filter((name) => !name.includes(' ') && name.trim() !== '');
+    const sessionAttrNames = cleanNames(userAttributes.filter((attr) => attr.objectType === SESSION_ATTRIBUTES_OBJECT_TYPE));
+    const userAttrNames = cleanNames(userAttributes.filter((attr) => attr.objectType !== SESSION_ATTRIBUTES_OBJECT_TYPE));
+
+    return {
+        user: sessionAttrNames.length ? ['attributes', 'session'] : ['attributes'],
+        'user.attributes': userAttrNames,
+        ...(sessionAttrNames.length ? {'user.session': sessionAttrNames} : {}),
+    };
+}
+
 interface CELEditorProps {
     value: string;
     onChange: (value: string) => void;
@@ -77,10 +103,7 @@ interface CELEditorProps {
     channelId?: string;
     teamId?: string;
     disabled?: boolean;
-    userAttributes: Array<{
-        attribute: string;
-        values: string[];
-    }>;
+    userAttributes: CELUserAttribute[];
 
     /**
      * When provided, the built-in expression-only TestResultsModal is
@@ -128,12 +151,7 @@ function CELEditor({
         isWaitingForValidation: false,
     });
 
-    const schemas = {
-        user: ['attributes'],
-        'user.attributes': userAttributes.
-            map((attr) => attr.attribute).
-            filter((attr) => !attr.includes(' ') && attr.trim() !== ''),
-    };
+    const schemas = buildCELSchemas(userAttributes);
 
     const editorRef = useRef(null);
     const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);

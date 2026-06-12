@@ -81,9 +81,10 @@ const PLATFORM_ICONS: Record<string, ComponentType<IconProps>> = {
 
 interface AttributeSelectorProps {
     currentAttribute: string;
+    currentAttributeObjectType?: string;
     availableAttributes: UserPropertyField[];
     disabled: boolean;
-    onChange: (attribute: string) => void;
+    onChange: (attributeId: string) => void;
     menuId: string;
     buttonId: string;
     autoOpen?: boolean;
@@ -91,7 +92,13 @@ interface AttributeSelectorProps {
     enableUserManagedAttributes: boolean;
 }
 
-const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled, onChange, menuId, buttonId, autoOpen = false, onMenuOpened, enableUserManagedAttributes}: AttributeSelectorProps) => {
+// A CPA attribute and a session attribute can share the same name, so the
+// current selection is matched on both name and namespace.
+const matchesSelection = (attr: UserPropertyField, name: string, objectType?: string): boolean => {
+    return attr.name === name && (attr.object_type || 'user') === (objectType || 'user');
+};
+
+const AttributeSelectorMenu = ({currentAttribute, currentAttributeObjectType, availableAttributes, disabled, onChange, menuId, buttonId, autoOpen = false, onMenuOpened, enableUserManagedAttributes}: AttributeSelectorProps) => {
     const {formatMessage} = useIntl();
     const [filter, setFilter] = useState('');
     const prevAutoOpen = useRef(false);
@@ -123,14 +130,14 @@ const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled,
         return {userOptions: user, sessionOptions: session};
     }, [options]);
 
-    const handleAttributeChange = React.useCallback((attribute: string) => {
-        onChange(attribute);
+    const handleAttributeChange = React.useCallback((attributeId: string) => {
+        onChange(attributeId);
         setFilter(''); // Reset filter after selection
     }, [onChange]); // setFilter is stable, onChange is a dependency
 
     const selectedAttributeObject = useMemo(() => {
-        return availableAttributes.find((attr) => attr.name === currentAttribute);
-    }, [currentAttribute, availableAttributes]);
+        return availableAttributes.find((attr) => matchesSelection(attr, currentAttribute, currentAttributeObjectType));
+    }, [currentAttribute, currentAttributeObjectType, availableAttributes]);
 
     let selectedAttributeLabel;
     if (selectedAttributeObject) {
@@ -158,6 +165,7 @@ const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled,
         // New fields cannot have spaces in name but leaving this check for backwards compatibility with grandfathered legacy fields.
         const hasSpaces = name.includes(' ');
         const isSessionAttribute = isSessionAttributeField(option);
+        const isSelected = matchesSelection(option, currentAttribute, currentAttributeObjectType);
         const isSynced = option.attrs?.ldap || option.attrs?.saml;
         const isAdminManaged = option.attrs?.managed === 'admin';
         const isProtected = option.attrs?.protected;
@@ -167,12 +175,12 @@ const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled,
 
         const menuItem = (
             <Menu.Item
-                id={`attribute-${name}`}
-                key={name}
+                id={`attribute-${option.id}`}
+                key={option.id}
                 role='menuitemradio'
                 forceCloseOnSelect={true}
-                aria-checked={name === currentAttribute}
-                onClick={hasSpaces ? undefined : () => handleAttributeChange(name)}
+                aria-checked={isSelected}
+                onClick={hasSpaces ? undefined : () => handleAttributeChange(option.id)}
                 labels={
                     displayName ? (
                         <AttributeLabel
@@ -217,7 +225,7 @@ const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled,
                                 color='rgba(var(--center-channel-color-rgb), 0.5)'
                             />
                         )}
-                        {name === currentAttribute &&
+                        {isSelected &&
                             <CheckIcon/>
                         }
                     </>
@@ -248,7 +256,7 @@ const AttributeSelectorMenu = ({currentAttribute, availableAttributes, disabled,
         if (tooltipContent) {
             return (
                 <WithTooltip
-                    key={name}
+                    key={option.id}
                     title={tooltipContent}
                 >
                     <div className='menu-item-tooltip-wrapper'>

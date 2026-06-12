@@ -6,6 +6,7 @@ import {FormattedMessage, useIntl} from 'react-intl';
 
 import type {AccessControlVisualAST} from '@mattermost/types/access_control';
 import type {UserPropertyField} from '@mattermost/types/properties';
+import {SESSION_ATTRIBUTES_OBJECT_TYPE} from '@mattermost/types/properties';
 
 import {searchUsersForExpression} from 'mattermost-redux/actions/access_control';
 import type {ActionResult} from 'mattermost-redux/types/actions';
@@ -19,7 +20,7 @@ import ValueSelectorMenu from './value_selector_menu';
 
 import CELHelpModal from '../../modals/cel_help/cel_help_modal';
 import TestResultsModal from '../../modals/policy_test/test_modal';
-import {AddAttributeButton, TestButton, HelpText, OPERATOR_CONFIG, OPERATOR_LABELS, OperatorLabel, isMultiValueOperator} from '../shared';
+import {AddAttributeButton, TestButton, HelpText, OPERATOR_CONFIG, OPERATOR_LABELS, OperatorLabel, isMultiValueOperator, celPrefixForField, SESSION_ATTRIBUTE_CEL_PREFIX, USER_ATTRIBUTE_CEL_PREFIX} from '../shared';
 
 import './table_editor.scss';
 
@@ -34,11 +35,13 @@ export function rowToCEL(row: TableRow): string {
     // Without this guard the condition would be filtered out by updateExpression,
     // the empty expression would be sent to the server, and buildCELFromConditions
     // would return "true" — making the policy wide-open (security regression).
+    const prefix = celPrefixForField({object_type: row.attribute_object_type ?? ''});
+
     if (row.hasMaskedValues && row.values.length === 0) {
-        return `user.attributes.${row.attribute} in []`;
+        return `${prefix}${row.attribute} in []`;
     }
 
-    const attributeExpr = `user.attributes.${row.attribute}`;
+    const attributeExpr = `${prefix}${row.attribute}`;
     const config = OPERATOR_CONFIG[row.operator];
 
     if (!config) {
@@ -147,11 +150,15 @@ export const parseExpression = (visualAST: AccessControlVisualAST): TableRow[] =
     }
 
     for (const node of visualAST.conditions) {
-        let attr;
+        let attr: string;
+        let attributeObjectType = 'user';
 
-        // Extracts the attribute name, removing the 'user.attributes.' prefix.
-        if (node.attribute.startsWith('user.attributes.')) {
-            attr = node.attribute.slice(16); // Length of 'user.attributes.'
+        // Extracts the attribute name, removing the CEL namespace prefix.
+        if (node.attribute.startsWith(USER_ATTRIBUTE_CEL_PREFIX)) {
+            attr = node.attribute.slice(USER_ATTRIBUTE_CEL_PREFIX.length);
+        } else if (node.attribute.startsWith(SESSION_ATTRIBUTE_CEL_PREFIX)) {
+            attr = node.attribute.slice(SESSION_ATTRIBUTE_CEL_PREFIX.length);
+            attributeObjectType = SESSION_ATTRIBUTES_OBJECT_TYPE;
         } else {
             throw new Error(`Unknown attribute: ${node.attribute}`);
         }
@@ -173,6 +180,7 @@ export const parseExpression = (visualAST: AccessControlVisualAST): TableRow[] =
 
         tableRows.push({
             attribute: attr,
+            attribute_object_type: attributeObjectType,
             operator: op,
             values,
             attribute_type: node.attribute_type,
@@ -314,6 +322,7 @@ function TableEditor({
         setRows((currentRows) => {
             const newRow: TableRow = {
                 attribute: firstAvailableAttribute.name,
+                attribute_object_type: firstAvailableAttribute.object_type,
                 operator: firstAvailableAttribute.type === 'multiselect' ? OperatorLabel.HAS_ANY_OF : OperatorLabel.IS,
                 values: [],
                 attribute_type: firstAvailableAttribute.type || '',
@@ -340,17 +349,26 @@ function TableEditor({
         removeRow(index);
     }, [removeRow]);
 
-    const updateRowAttribute = useCallback((index: number, attribute: string) => {
+    const updateRowAttribute = useCallback((index: number, attributeId: string) => {
         setRows((currentRows) => {
-            const newRows = [...currentRows];
-            const oldAttribute = newRows[index].attribute;
-            newRows[index] = {...newRows[index], attribute};
+            // Resolve by unique id, not name: a CPA attribute and a session
+            // attribute can share a name, and only the id pins down the correct
+            // namespace (object_type) for CEL generation.
+            const newAttributeObj = userAttributes.find((attr) => attr.id === attributeId);
+            const newAttribute = newAttributeObj?.name || '';
+            const newObjectType = newAttributeObj?.object_type || 'user';
 
-            if (oldAttribute !== attribute) {
+            const newRows = [...currentRows];
+            const current = newRows[index];
+            const attributeChanged = current.attribute !== newAttribute ||
+                (current.attribute_object_type || 'user') !== newObjectType;
+            newRows[index] = {...current, attribute: newAttribute};
+
+            if (attributeChanged) {
                 newRows[index].values = [];
 
-                const newAttributeObj = userAttributes.find((attr) => attr.name === attribute);
                 newRows[index].attribute_type = newAttributeObj?.type || '';
+                newRows[index].attribute_object_type = newObjectType;
 
                 const isMultiselect = newAttributeObj?.type === 'multiselect';
                 const wasMultiselect = currentRows[index].attribute_type === 'multiselect';
@@ -461,9 +479,10 @@ function TableEditor({
                                 <td className='table-editor__cell'>
                                     <AttributeSelectorMenu
                                         currentAttribute={row.attribute}
+                                        currentAttributeObjectType={row.attribute_object_type}
                                         availableAttributes={userAttributes}
                                         disabled={disabled || row.hasMaskedValues}
-                                        onChange={(attribute) => updateRowAttribute(index, attribute)}
+                                        onChange={(attributeId) => updateRowAttribute(index, attributeId)}
                                         menuId={`attribute-selector-menu-${index}`}
                                         buttonId={`attribute-selector-button-${index}`}
                                         autoOpen={index === autoOpenAttributeMenuForRow}
