@@ -43,9 +43,14 @@ export function rowToCEL(row: TableRow): string {
     const attributeExpr = celPathFor(row.attribute, isNative);
     const config = OPERATOR_CONFIG[row.operator];
 
-    // native_method (e.g. youngerThanDays) takes a verbatim, unquoted argument.
+    // native_method (e.g. youngerThanDays) takes an unquoted integer argument.
+    // Sanitize to a normalized non-negative integer so a stray keystroke can't
+    // emit invalid CEL like user.createat.youngerThanDays(abc), which would stop
+    // the rule from round-tripping through the table editor.
     if (config?.type === 'native_method') {
-        const arg = row.values.length > 0 ? row.values[0] : '';
+        const raw = row.values.length > 0 ? row.values[0] : '';
+        const digits = raw.replace(/\D/g, '');
+        const arg = digits === '' ? '0' : String(parseInt(digits, 10));
         return `${attributeExpr}.${config.celOp}(${arg})`;
     }
 

@@ -29,7 +29,7 @@ import {useChannelAccessControlActions} from 'hooks/useChannelAccessControlActio
 import {getHistory} from 'utils/browser_history';
 
 import CELEditor from '../../access_control/editors/cel_editor/editor';
-import {hasUsableAttributes, toCELEditorAttributes} from '../../access_control/editors/shared';
+import {hasUsableAttributes, isSimpleExpression, toCELEditorAttributes} from '../../access_control/editors/shared';
 import TableEditor from '../../access_control/editors/table_editor/table_editor';
 
 import './permission_policy_details.scss';
@@ -150,20 +150,9 @@ function PermissionPolicyDetails({
         loadPage().finally(() => setPageLoaded(true));
     }, [policyId]);
 
-    const isSimpleExpression = (expr: string): boolean => {
-        if (!expr) {
-            return true;
-        }
-        return expr.split('&&').every((condition) => {
-            const trimmed = condition.trim();
-            return trimmed.match(/^user\.attributes\.\w+\s*(==|!=)\s*['"][^'"]*['"]$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\s+in\s+\[.*?\]$/) ||
-                   trimmed.match(/^((\[.*?\])||['"][^'"]*['"].*?)\s+in\s+user\.attributes\.\w+$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.startsWith\(['"][^'"]*['"].*?\)$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.endsWith\(['"][^'"]*['"].*?\)$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.contains\(['"][^'"]*['"].*?\)$/);
-        });
-    };
+    // isSimpleExpression imported from ../../access_control/editors/shared so
+    // native user attributes (user.email, user.createat.youngerThanDays(...), etc.)
+    // are recognized as simple and open in table mode.
 
     const loadPage = async (): Promise<void> => {
         const fieldsPromise = abacActions.getAccessControlFields('', 100).then((result) => {

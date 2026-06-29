@@ -701,6 +701,25 @@ describe('rowToCEL with native user attributes', () => {
         expect(cel).toBe('user.email.contains("@example.com")');
     });
 
+    test.each([
+        ['30', 'user.createat.youngerThanDays(30)'],
+        ['', 'user.createat.youngerThanDays(0)'],
+        ['abc', 'user.createat.youngerThanDays(0)'],
+        ['30abc', 'user.createat.youngerThanDays(30)'],
+        ['007', 'user.createat.youngerThanDays(7)'],
+        ['-5', 'user.createat.youngerThanDays(5)'],
+    ])('youngerThanDays sanitizes %p to a non-negative integer', (input, expected) => {
+        const cel = rowToCEL({
+            attribute: 'createat',
+            operator: 'younger than',
+            values: input === '' ? [] : [input],
+            attribute_type: 'text',
+            hasMaskedValues: false,
+            isNative: true,
+        });
+        expect(cel).toBe(expected);
+    });
+
     test('youngerThanDays emits an unquoted integer argument', () => {
         const cel = rowToCEL({
             attribute: 'createat',
@@ -837,5 +856,21 @@ describe('isSimpleCondition', () => {
 
     test('native youngerThanDays helper', () => {
         expect(isSimpleCondition('user.createat.youngerThanDays(7)')).toBe(true);
+    });
+
+    test('unsupported native field/operator pairings are not simple', () => {
+        // Boolean fields only support true/false equality, not quoted strings or methods.
+        expect(isSimpleCondition('user.verified == "true"')).toBe(false);
+        expect(isSimpleCondition('user.isbot.contains("x")')).toBe(false);
+
+        // String/method operators belong to email only, not createat or the booleans.
+        expect(isSimpleCondition('user.createat == "x"')).toBe(false);
+        expect(isSimpleCondition('user.email == true')).toBe(false);
+
+        // youngerThanDays is exclusive to createat.
+        expect(isSimpleCondition('user.email.youngerThanDays(7)')).toBe(false);
+
+        // Unknown native names do not round-trip through the table editor.
+        expect(isSimpleCondition('user.id == "abc"')).toBe(false);
     });
 });

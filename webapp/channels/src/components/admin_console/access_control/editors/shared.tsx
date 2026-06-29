@@ -199,16 +199,17 @@ export function isSimpleCondition(s: string): boolean {
         trimmed.match(/^user\.attributes\.\w+\.endsWith\(['"][^'"]*['"].*?\)$/) ||
         trimmed.match(/^user\.attributes\.\w+\.contains\(['"][^'"]*['"].*?\)$/) ||
 
-        // Native user attributes (single segment after `user.`). These patterns
-        // cannot collide with the two-segment custom-profile-attribute forms above.
-        trimmed.match(/^user\.\w+\s*(==|!=)\s*(true|false)$/) ||
-        trimmed.match(/^user\.\w+\s*(==|!=)\s*['"][^'"]*['"]$/) ||
-        trimmed.match(/^user\.\w+\s+in\s+\[.*?\]$/) ||
-        trimmed.match(/^((\[.*?\])|['"][^'"]*['"])\s+in\s+user\.\w+$/) ||
-        trimmed.match(/^user\.\w+\.startsWith\(['"][^'"]*['"].*?\)$/) ||
-        trimmed.match(/^user\.\w+\.endsWith\(['"][^'"]*['"].*?\)$/) ||
-        trimmed.match(/^user\.\w+\.contains\(['"][^'"]*['"].*?\)$/) ||
-        trimmed.match(/^user\.\w+\.youngerThanDays\(\d+\)$/),
+        // Native user attributes (single segment after `user.`). Restricted to
+        // the field/operator pairings the table editor can round-trip: boolean
+        // equality for verified/isbot, string operators for email, and
+        // youngerThanDays for createat. These cannot collide with the
+        // two-segment custom-profile-attribute forms above.
+        trimmed.match(/^user\.(verified|isbot)\s*(==|!=)\s*(true|false)$/) ||
+        trimmed.match(/^user\.email\s*(==|!=)\s*['"][^'"]*['"]$/) ||
+        trimmed.match(/^user\.email\s+in\s+\[.*?\]$/) ||
+        trimmed.match(/^((\[.*?\])|['"][^'"]*['"])\s+in\s+user\.email$/) ||
+        trimmed.match(/^user\.email\.(startsWith|endsWith|contains)\(['"][^'"]*['"].*?\)$/) ||
+        trimmed.match(/^user\.createat\.youngerThanDays\(\d+\)$/),
     );
 }
 
