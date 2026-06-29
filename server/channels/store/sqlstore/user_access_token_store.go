@@ -334,7 +334,14 @@ func (s SqlUserAccessTokenStore) GetExpiringTokens(now int64, thresholds []int, 
 		OrderBy("UserAccessTokens.ExpiresAt ASC").
 		Limit(uint64(limit))
 
-	if err := s.GetReplica().SelectBuilder(&tokens, query); err != nil {
+	// Read from master, not a replica: this is a low-frequency batch query whose
+	// whole purpose is to dedup against LastNotifiedAt, which is written to master
+	// after each warning. A lagging replica could miss a just-written
+	// LastNotifiedAt and re-surface a token that was already warned, causing a
+	// duplicate notification — a window that on-demand re-runs of the job make
+	// reachable. The query runs at most once per run, so there is no read-scaling
+	// cost to giving up the replica here.
+	if err := s.GetMaster().SelectBuilder(&tokens, query); err != nil {
 		return nil, errors.Wrap(err, "failed to find expiring UserAccessTokens")
 	}
 
