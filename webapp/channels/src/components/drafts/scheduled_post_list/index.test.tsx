@@ -3,12 +3,13 @@
 
 import {createMemoryHistory} from 'history';
 import React from 'react';
+import {VariableSizeList} from 'react-window';
 
 import type {ScheduledPost, ScheduledPostErrorCode} from '@mattermost/types/schedule_post';
 
 import {fetchMissingChannels} from 'mattermost-redux/actions/channels';
 
-import {renderWithContext, screen} from 'tests/react_testing_utils';
+import {act, renderWithContext, screen} from 'tests/react_testing_utils';
 import {TestHelper} from 'utils/test_helper';
 
 import ScheduledPostList from './index';
@@ -225,5 +226,40 @@ describe('components/drafts/scheduled_post_list', () => {
         // Nothing is highlighted.
         const rows = screen.getAllByTestId('scheduled-post-row');
         rows.forEach((row) => expect(row).toHaveAttribute('data-highlight', 'false'));
+    });
+
+    test('re-centers on the target after rows are measured taller than the estimate', async () => {
+        // Real row heights differ from the ~91px estimate used for the first
+        // scroll, which previously left the list a row off from the target.
+        // Report a taller height so the post-measurement re-center is exercised.
+        const rectSpy = jest.spyOn(Element.prototype, 'getBoundingClientRect').
+            mockReturnValue({height: 200, width: 100, top: 0, left: 0, bottom: 200, right: 100, x: 0, y: 0, toJSON: () => ({})} as DOMRect);
+        const scrollToItemSpy = jest.spyOn(VariableSizeList.prototype, 'scrollToItem');
+
+        try {
+            const posts: ScheduledPost[] = [];
+            for (let i = 0; i < 40; i++) {
+                posts.push(makeScheduledPost(`sp${i}`, `Scheduled message ${i}`, 'channel1'));
+            }
+            const targetChannelId = 'target_channel';
+            posts[30] = makeScheduledPost('target', 'Target scheduled message', targetChannelId);
+
+            renderList(posts, [], `?target_id=${targetChannelId}`);
+
+            const callsAfterMount = scrollToItemSpy.mock.calls.length;
+            expect(scrollToItemSpy).toHaveBeenCalledWith(30, 'center');
+
+            // Let the requestAnimationFrame measurement callbacks run.
+            await act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            });
+
+            // The target is re-centered once nearby rows report their real height.
+            expect(scrollToItemSpy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+            expect(scrollToItemSpy).toHaveBeenLastCalledWith(30, 'center');
+        } finally {
+            rectSpy.mockRestore();
+            scrollToItemSpy.mockRestore();
+        }
     });
 });
