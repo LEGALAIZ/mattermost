@@ -730,6 +730,63 @@ func (a *App) EnableUserAccessToken(rctx request.CTX, token *model.UserAccessTok
 	return nil
 }
 
+// RotateUserAccessToken generates a new secret for the token, sets a fresh
+// expiry, and immediately invalidates the old secret and its sessions.  The
+// returned token carries the new secret (shown once, like CreateUserAccessToken).
+func (a *App) RotateUserAccessToken(rctx request.CTX, token *model.UserAccessToken, expiresAt int64) (*model.UserAccessToken, *model.AppError) {
+	user, nErr := a.ch.srv.userService.GetUser(token.UserId)
+	if nErr != nil {
+		var nfErr *store.ErrNotFound
+		switch {
+		case errors.As(nErr, &nfErr):
+			return nil, model.NewAppError("RotateUserAccessToken", MissingAccountError, nil, "", http.StatusNotFound).Wrap(nErr)
+		default:
+			return nil, model.NewAppError("RotateUserAccessToken", "app.user.get.app_error", nil, "", http.StatusInternalServerError).Wrap(nErr)
+		}
+	}
+
+	if !*a.Config().ServiceSettings.EnableUserAccessTokens && !user.IsBot {
+		return nil, model.NewAppError("RotateUserAccessToken", "app.user_access_token.disabled", nil, "", http.StatusNotImplemented)
+	}
+
+	if !user.IsBot {
+		rotated := &model.UserAccessToken{
+			Id:        token.Id,
+			UserId:    token.UserId,
+			ExpiresAt: expiresAt,
+		}
+		if err := a.validateUserAccessTokenExpiry(rotated); err != nil {
+			return nil, err
+		}
+	}
+
+	// Capture the old session before the store update so we can evict it from
+	// the cache after the secret changes.
+	oldSession, _ := a.ch.srv.platform.GetSessionContext(rctx, token.Token)
+
+	newSecret := model.NewId()
+	if err := a.Srv().Store().UserAccessToken().UpdateTokenRotate(token.Id, newSecret, expiresAt); err != nil {
+		return nil, model.NewAppError("RotateUserAccessToken", "app.user_access_token.rotate.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
+	}
+
+	if oldSession != nil {
+		if err := a.RevokeSession(rctx, oldSession); err != nil {
+			rctx.Logger().Warn("Failed to revoke old session after token rotate", mlog.String("token_id", token.Id), mlog.Err(err))
+		}
+	}
+
+	token.Token = newSecret
+	token.ExpiresAt = expiresAt
+
+	if !user.IsBot {
+		if err := a.Srv().EmailService.SendUserAccessTokenAddedEmail(user.Email, user.Locale, a.GetSiteURL()); err != nil {
+			rctx.Logger().Error("Unable to send user access token rotated email", mlog.Err(err), mlog.String("user_id", user.Id))
+		}
+	}
+
+	return token, nil
+}
+
 func (a *App) GetUserAccessTokens(page, perPage int) ([]*model.UserAccessToken, *model.AppError) {
 	tokens, err := a.Srv().Store().UserAccessToken().GetAll(page*perPage, perPage)
 	if err != nil {

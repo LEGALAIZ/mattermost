@@ -7056,6 +7056,119 @@ func TestEnableUserAccessTokenDeniesOAuthSession(t *testing.T) {
 	CheckForbiddenStatus(t, resp)
 }
 
+func TestRotateUserAccessToken(t *testing.T) {
+	mainHelper.Parallel(t)
+
+	t.Run("rotate own token", func(t *testing.T) {
+		mainHelper.Parallel(t)
+		th := Setup(t).InitBasic(t)
+
+		th.App.UpdateConfig(func(cfg *model.Config) { *cfg.ServiceSettings.EnableUserAccessTokens = true })
+
+		_, appErr := th.App.UpdateUserRoles(th.Context, th.BasicUser.Id, model.SystemUserRoleId+" "+model.SystemUserAccessTokenRoleId, false)
+		require.Nil(t, appErr)
+
+		token, _, err := th.Client.CreateUserAccessToken(context.Background(), th.BasicUser.Id, "test token", 0)
+		require.NoError(t, err)
+		oldSecret := token.Token
+		assertToken(t, th, token, th.BasicUser.Id)
+
+		rotated, _, err := th.Client.RotateUserAccessToken(context.Background(), token.Id, 0)
+		require.NoError(t, err)
+
+		assert.Equal(t, token.Id, rotated.Id, "token id must not change")
+		assert.Equal(t, token.UserId, rotated.UserId, "user id must not change")
+		assert.Equal(t, token.Description, rotated.Description, "description must not change")
+		assert.NotEmpty(t, rotated.Token, "new token secret must be present in response")
+		assert.NotEqual(t, oldSecret, rotated.Token, "new secret must differ from old")
+
+		// New secret must authenticate.
+		assertToken(t, th, rotated, th.BasicUser.Id)
+
+		// Old secret must no longer authenticate.
+		oldToken := &model.UserAccessToken{Token: oldSecret}
+		assertInvalidToken(t, th, oldToken)
+	})
+
+	t.Run("rotate token without permission", func(t *testing.T) {
+		mainHelper.Parallel(t)
+		th := Setup(t).InitBasic(t)
+
+		th.App.UpdateConfig(func(cfg *model.Config) { *cfg.ServiceSettings.EnableUserAccessTokens = true })
+
+		token, _, err := th.SystemAdminClient.CreateUserAccessToken(context.Background(), th.BasicUser.Id, "test token", 0)
+		require.NoError(t, err)
+
+		// BasicUser does not have create_user_access_token, so this should fail.
+		_, resp, err := th.Client.RotateUserAccessToken(context.Background(), token.Id, 0)
+		require.Error(t, err)
+		CheckForbiddenStatus(t, resp)
+	})
+
+	t.Run("rotate token belonging to another user requires edit_other_users", func(t *testing.T) {
+		mainHelper.Parallel(t)
+		th := Setup(t).InitBasic(t)
+
+		th.App.UpdateConfig(func(cfg *model.Config) { *cfg.ServiceSettings.EnableUserAccessTokens = true })
+
+		// Give BasicUser create_user_access_token but not edit_other_users.
+		_, appErr := th.App.UpdateUserRoles(th.Context, th.BasicUser.Id, model.SystemUserRoleId+" "+model.SystemUserAccessTokenRoleId, false)
+		require.Nil(t, appErr)
+
+		token, _, err := th.SystemAdminClient.CreateUserAccessToken(context.Background(), th.BasicUser2.Id, "test token", 0)
+		require.NoError(t, err)
+
+		_, resp, err := th.Client.RotateUserAccessToken(context.Background(), token.Id, 0)
+		require.Error(t, err)
+		CheckForbiddenStatus(t, resp)
+	})
+
+	t.Run("oauth session is rejected", func(t *testing.T) {
+		mainHelper.Parallel(t)
+		th := Setup(t).InitBasic(t)
+
+		th.App.UpdateConfig(func(cfg *model.Config) { *cfg.ServiceSettings.EnableUserAccessTokens = true })
+
+		_, appErr := th.App.UpdateUserRoles(th.Context, th.BasicUser.Id, model.SystemUserRoleId+" "+model.SystemUserAccessTokenRoleId, false)
+		require.Nil(t, appErr)
+
+		token, _, err := th.Client.CreateUserAccessToken(context.Background(), th.BasicUser.Id, "test token", 0)
+		require.NoError(t, err)
+
+		session, _ := th.App.GetSession(th.Client.AuthToken)
+		session.IsOAuth = true
+		th.App.AddSessionToCache(session)
+
+		_, resp, err := th.Client.RotateUserAccessToken(context.Background(), token.Id, 0)
+		require.Error(t, err)
+		CheckForbiddenStatus(t, resp)
+	})
+
+	t.Run("expiry too far is rejected when max lifetime is set", func(t *testing.T) {
+		mainHelper.Parallel(t)
+		th := Setup(t).InitBasic(t)
+
+		th.App.UpdateConfig(func(cfg *model.Config) {
+			*cfg.ServiceSettings.EnableUserAccessTokens = true
+			*cfg.ServiceSettings.MaximumPersonalAccessTokenLifetimeDays = 30
+		})
+
+		_, appErr := th.App.UpdateUserRoles(th.Context, th.BasicUser.Id, model.SystemUserRoleId+" "+model.SystemUserAccessTokenRoleId, false)
+		require.Nil(t, appErr)
+
+		// Create with a valid expiry.
+		validExpiry := model.GetMillis() + 7*24*60*60*1000
+		token, _, err := th.Client.CreateUserAccessToken(context.Background(), th.BasicUser.Id, "test token", validExpiry)
+		require.NoError(t, err)
+
+		// Rotate with an expiry 31 days out should be rejected.
+		tooFarExpiry := model.GetMillis() + 31*24*60*60*1000
+		_, resp, err := th.Client.RotateUserAccessToken(context.Background(), token.Id, tooFarExpiry)
+		require.Error(t, err)
+		CheckBadRequestStatus(t, resp)
+	})
+}
+
 func TestUserAccessTokenInactiveUser(t *testing.T) {
 	mainHelper.Parallel(t)
 

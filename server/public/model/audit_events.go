@@ -479,6 +479,7 @@ const (
 	AuditEventRevokeSession                = "revokeSession"                // revoke specific user session
 	AuditEventRejectExpiredUserAccessToken = "rejectExpiredUserAccessToken" // rejected an API request because the personal access token has expired
 	AuditEventRevokeUserAccessToken        = "revokeUserAccessToken"        // revoke user personal access token
+	AuditEventRotateUserAccessToken        = "rotateUserAccessToken"        // rotate (regenerate secret for) user personal access token
 	AuditEventSendPasswordReset            = "sendPasswordReset"            // send password reset email to user
 	AuditEventSendVerificationEmail        = "sendVerificationEmail"        // send email verification link to user
 	AuditEventSetDefaultProfileImage       = "setDefaultProfileImage"       // set user profile image to default avatar
