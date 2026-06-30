@@ -492,6 +492,134 @@ func (s *MmctlUnitTestSuite) TestPostCreateCmdF() {
 		s.Len(printer.GetErrorLines(), 0)
 	})
 
+	s.Run("create a post when a single upload returns multiple file infos", func() {
+		printer.Clean()
+		msgArg := "some text"
+		channelArg := "example-channel"
+		channelID := "channel-id"
+		fileContent := []byte("archive contents")
+		filePath := filepath.Join(s.T().TempDir(), "bundle.zip")
+		s.Require().NoError(os.WriteFile(filePath, fileContent, 0600))
+
+		mockChannel := model.Channel{Id: channelID, Name: channelArg}
+		mockUploadResp := &model.FileUploadResponse{FileInfos: []*model.FileInfo{{Id: "file-id-1"}, {Id: "file-id-2"}}}
+		mockPost := model.Post{Message: msgArg, ChannelId: channelID, FileIds: []string{"file-id-1", "file-id-2"}}
+		data, err := mockPost.ToJSON()
+		s.Require().NoError(err)
+
+		cmd := &cobra.Command{}
+		cmd.Flags().String("message", msgArg, "")
+		cmd.Flags().StringArray("file", []string{filePath}, "")
+
+		s.client.
+			EXPECT().
+			GetChannel(context.TODO(), channelArg).
+			Return(&mockChannel, &model.Response{}, nil).
+			Times(1)
+
+		s.client.
+			EXPECT().
+			UploadFile(context.TODO(), fileContent, channelID, "bundle.zip").
+			Return(mockUploadResp, &model.Response{}, nil).
+			Times(1)
+
+		s.client.
+			EXPECT().
+			DoAPIPost(context.TODO(), "/posts?set_online=false", data).
+			Return(nil, nil).
+			Times(1)
+
+		err = postCreateCmdF(s.client, cmd, []string{channelArg, msgArg})
+		s.Require().Nil(err)
+		s.Len(printer.GetErrorLines(), 0)
+	})
+
+	s.Run("create a post when an upload returns no file infos", func() {
+		printer.Clean()
+		msgArg := "some text"
+		channelArg := "example-channel"
+		channelID := "channel-id"
+		fileContent := []byte("file contents")
+		filePath := filepath.Join(s.T().TempDir(), "attachment.txt")
+		s.Require().NoError(os.WriteFile(filePath, fileContent, 0600))
+
+		mockChannel := model.Channel{Id: channelID, Name: channelArg}
+		mockPost := model.Post{Message: msgArg, ChannelId: channelID}
+		data, err := mockPost.ToJSON()
+		s.Require().NoError(err)
+
+		cmd := &cobra.Command{}
+		cmd.Flags().String("message", msgArg, "")
+		cmd.Flags().StringArray("file", []string{filePath}, "")
+
+		s.client.
+			EXPECT().
+			GetChannel(context.TODO(), channelArg).
+			Return(&mockChannel, &model.Response{}, nil).
+			Times(1)
+
+		s.client.
+			EXPECT().
+			UploadFile(context.TODO(), fileContent, channelID, "attachment.txt").
+			Return(&model.FileUploadResponse{FileInfos: nil}, &model.Response{}, nil).
+			Times(1)
+
+		s.client.
+			EXPECT().
+			DoAPIPost(context.TODO(), "/posts?set_online=false", data).
+			Return(nil, nil).
+			Times(1)
+
+		err = postCreateCmdF(s.client, cmd, []string{channelArg, msgArg})
+		s.Require().Nil(err)
+		s.Len(printer.GetErrorLines(), 0)
+	})
+
+	s.Run("fails and creates no post when a later file upload errors", func() {
+		printer.Clean()
+		msgArg := "some text"
+		channelArg := "example-channel"
+		channelID := "channel-id"
+		dir := s.T().TempDir()
+
+		firstContent := []byte("first file")
+		firstPath := filepath.Join(dir, "first.txt")
+		s.Require().NoError(os.WriteFile(firstPath, firstContent, 0600))
+
+		secondContent := []byte("second file")
+		secondPath := filepath.Join(dir, "second.txt")
+		s.Require().NoError(os.WriteFile(secondPath, secondContent, 0600))
+
+		mockChannel := model.Channel{Id: channelID, Name: channelArg}
+
+		cmd := &cobra.Command{}
+		cmd.Flags().String("message", msgArg, "")
+		cmd.Flags().StringArray("file", []string{firstPath, secondPath}, "")
+
+		s.client.
+			EXPECT().
+			GetChannel(context.TODO(), channelArg).
+			Return(&mockChannel, &model.Response{}, nil).
+			Times(1)
+
+		s.client.
+			EXPECT().
+			UploadFile(context.TODO(), firstContent, channelID, "first.txt").
+			Return(&model.FileUploadResponse{FileInfos: []*model.FileInfo{{Id: "file-id-1"}}}, &model.Response{}, nil).
+			Times(1)
+
+		s.client.
+			EXPECT().
+			UploadFile(context.TODO(), secondContent, channelID, "second.txt").
+			Return(nil, &model.Response{}, errors.New("some-error")).
+			Times(1)
+
+		err := postCreateCmdF(s.client, cmd, []string{channelArg, msgArg})
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "could not upload file")
+		s.Len(printer.GetErrorLines(), 0)
+	})
+
 	s.Run("fails when the file cannot be read", func() {
 		printer.Clean()
 		msgArg := "some text"
