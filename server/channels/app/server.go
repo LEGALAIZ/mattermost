@@ -265,6 +265,10 @@ func NewServer(options ...Option) (*Server, error) {
 			callerID, _ := CallerIDFromRequestContext(rctx)
 			return callerID
 		},
+		ActingAsScopeExtractor: func(rctx request.CTX) string {
+			scope, _ := ActingAsScopeFromRequestContext(rctx)
+			return scope
+		},
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to create properties service")
@@ -338,6 +342,15 @@ func NewServer(options ...Option) (*Server, error) {
 	}
 	attrValidationHook := properties.NewAccessControlAttributeValidationHook(s.propertyService, permChecker, cpaGroup.ID)
 	s.propertyService.AddHook(attrValidationHook)
+
+	// Value attribution + audit hook — stamps CreatedBy/UpdatedBy on writes and
+	// emits a content-level audit record for each effective value change. The
+	// audit sink bridges to the App audit subsystem so the properties package
+	// stays independent of it.
+	valueAuditHook := properties.NewAccessControlValueAuditHook(s.propertyService, func(rctx request.CTX, action, targetType, targetID, fieldID string, success bool) {
+		app.auditCPAValueChange(rctx, action, targetType, targetID, fieldID, success)
+	}, cpaGroup.ID)
+	s.propertyService.AddHook(valueAuditHook)
 
 	// Field limit hook — enforces per-object-type and global field limits.
 	// Only "user" has a per-type cap today; when channel/team/post CPA fields

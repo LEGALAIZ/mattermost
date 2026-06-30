@@ -15,21 +15,28 @@ import (
 // This avoids circular dependency between the properties and app packages.
 type CallerIDExtractor func(rctx request.CTX) string
 
+// ActingAsScopeExtractor is a function type that extracts the caller's
+// acting-as scope from a request context. This avoids a circular dependency
+// between the properties and app packages.
+type ActingAsScopeExtractor func(rctx request.CTX) string
+
 type PropertyService struct {
-	groupStore        store.PropertyGroupStore
-	fieldStore        store.PropertyFieldStore
-	valueStore        store.PropertyValueStore
-	hooks             []PropertyHook
-	callerIDExtractor CallerIDExtractor
-	groupCache        sync.Map // name -> *model.PropertyGroup
-	groupIDCache      sync.Map // id -> *model.PropertyGroup
+	groupStore             store.PropertyGroupStore
+	fieldStore             store.PropertyFieldStore
+	valueStore             store.PropertyValueStore
+	hooks                  []PropertyHook
+	callerIDExtractor      CallerIDExtractor
+	actingAsScopeExtractor ActingAsScopeExtractor
+	groupCache             sync.Map // name -> *model.PropertyGroup
+	groupIDCache           sync.Map // id -> *model.PropertyGroup
 }
 
 type ServiceConfig struct {
-	PropertyGroupStore store.PropertyGroupStore
-	PropertyFieldStore store.PropertyFieldStore
-	PropertyValueStore store.PropertyValueStore
-	CallerIDExtractor  CallerIDExtractor
+	PropertyGroupStore     store.PropertyGroupStore
+	PropertyFieldStore     store.PropertyFieldStore
+	PropertyValueStore     store.PropertyValueStore
+	CallerIDExtractor      CallerIDExtractor
+	ActingAsScopeExtractor ActingAsScopeExtractor
 }
 
 func New(c ServiceConfig) (*PropertyService, error) {
@@ -38,10 +45,11 @@ func New(c ServiceConfig) (*PropertyService, error) {
 	}
 
 	return &PropertyService{
-		groupStore:        c.PropertyGroupStore,
-		fieldStore:        c.PropertyFieldStore,
-		valueStore:        c.PropertyValueStore,
-		callerIDExtractor: c.CallerIDExtractor,
+		groupStore:             c.PropertyGroupStore,
+		fieldStore:             c.PropertyFieldStore,
+		valueStore:             c.PropertyValueStore,
+		callerIDExtractor:      c.CallerIDExtractor,
+		actingAsScopeExtractor: c.ActingAsScopeExtractor,
 	}, nil
 }
 
@@ -58,4 +66,13 @@ func (ps *PropertyService) extractCallerID(rctx request.CTX) string {
 		return ""
 	}
 	return ps.callerIDExtractor(rctx)
+}
+
+// extractActingAsScope gets the caller's acting-as scope from a request context
+// using the configured extractor.
+func (ps *PropertyService) extractActingAsScope(rctx request.CTX) string {
+	if ps.actingAsScopeExtractor == nil || rctx == nil {
+		return ""
+	}
+	return ps.actingAsScopeExtractor(rctx)
 }

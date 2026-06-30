@@ -30,6 +30,24 @@ func CallerIDFromRequestContext(rctx request.CTX) (string, bool) {
 	return model.CallerIDFromContext(rctx.Context())
 }
 
+// RequestContextWithCallerIDAndScope adds both the caller ID and the caller's
+// acting-as scope to a request.CTX for access control purposes.
+func RequestContextWithCallerIDAndScope(rctx request.CTX, callerID, scope string) request.CTX {
+	ctx := model.WithCallerID(rctx.Context(), callerID)
+	ctx = model.WithActingAsScope(ctx, scope)
+	return rctx.WithContext(ctx)
+}
+
+// ActingAsScopeFromRequestContext extracts the caller's acting-as scope from a
+// request.CTX. Returns the scope and true if found, or empty string and false
+// if not.
+func ActingAsScopeFromRequestContext(rctx request.CTX) (string, bool) {
+	if rctx == nil {
+		return "", false
+	}
+	return model.ActingAsScopeFromContext(rctx.Context())
+}
+
 func pluginContext(rctx request.CTX) *plugin.Context {
 	context := &plugin.Context{
 		RequestId:      rctx.RequestId(),

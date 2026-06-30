@@ -90,6 +90,20 @@ export type PropertyFieldOption = {
     rank?: number;
 };
 
+export type PropertyFieldOwnerType = 'plugin' | 'service' | 'role' | 'user';
+
+/**
+ * An identity that owns (manages the data of) a user attribute. Read-only in
+ * the admin UI: ownership is assigned by the owning integration (e.g. the SCIM
+ * plugin), not from the System Console. The UI renders a badge from the owner
+ * id and scope.
+ */
+export type PropertyFieldOwner = {
+    id: string;
+    type: PropertyFieldOwnerType;
+    scopes: string[];
+};
+
 export type UserPropertyField = PropertyField & {
     group_id: UserPropertyFieldGroupID;
     attrs: {
@@ -104,6 +118,7 @@ export type UserPropertyField = PropertyField & {
         source_plugin_id?: string;
         access_mode?: '' | 'source_only' | 'shared_only';
         display_name?: string;
+        owners?: PropertyFieldOwner[];
     };
 };
 

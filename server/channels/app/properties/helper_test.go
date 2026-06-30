@@ -45,6 +45,13 @@ func setupTestHelper(s store.Store, tb testing.TB) *TestHelper {
 			callerID, _ := model.CallerIDFromContext(rctx.Context())
 			return callerID
 		},
+		ActingAsScopeExtractor: func(rctx request.CTX) string {
+			if rctx == nil {
+				return ""
+			}
+			scope, _ := model.ActingAsScopeFromContext(rctx.Context())
+			return scope
+		},
 	})
 	require.NoError(tb, err)
 
@@ -62,6 +69,14 @@ func setupTestHelper(s store.Store, tb testing.TB) *TestHelper {
 // RequestContextWithCallerID adds the caller ID to a request.CTX for access control purposes.
 func RequestContextWithCallerID(rctx request.CTX, callerID string) request.CTX {
 	ctx := model.WithCallerID(rctx.Context(), callerID)
+	return rctx.WithContext(ctx)
+}
+
+// RequestContextWithCallerIDAndScope adds the caller ID and acting-as scope to
+// a request.CTX for access control purposes.
+func RequestContextWithCallerIDAndScope(rctx request.CTX, callerID, scope string) request.CTX {
+	ctx := model.WithCallerID(rctx.Context(), callerID)
+	ctx = model.WithActingAsScope(ctx, scope)
 	return rctx.WithContext(ctx)
 }
 

@@ -11,6 +11,11 @@ type AccessControlContextKey string
 // AccessControlCallerIDContextKey is the context key for access control caller ID.
 const AccessControlCallerIDContextKey AccessControlContextKey = "access_control_caller_id"
 
+// AccessControlScopeContextKey is the context key for the caller's "acting-as"
+// scope. The scope rides alongside the caller ID so a single owner (e.g. the
+// SCIM plugin) can subdivide its access per external system (e.g. "entra").
+const AccessControlScopeContextKey AccessControlContextKey = "access_control_scope"
+
 // Well-known caller IDs for internal services that need to write property
 // values on synced fields. These are set on the request context by the
 // respective sync services so that the access control hook can identify them.
@@ -41,6 +46,33 @@ func CallerIDFromContext(ctx context.Context) (string, bool) {
 	if v := ctx.Value(AccessControlCallerIDContextKey); v != nil {
 		if id, ok := v.(string); ok {
 			return id, true
+		}
+	}
+	return "", false
+}
+
+// PropertyWriteOptions carries per-call write context for property value
+// writes made through the plugin API. It lets a plugin declare the scope it is
+// acting as so the server can check it against a field's owners.
+type PropertyWriteOptions struct {
+	// ActingAsScope is the owner-defined scope label the caller is acting as
+	// (e.g. "entra"). Empty means the caller is not acting as any scope.
+	ActingAsScope string
+}
+
+// WithActingAsScope adds the caller's acting-as scope to a context.Context for
+// access control purposes.
+func WithActingAsScope(ctx context.Context, scope string) context.Context {
+	return context.WithValue(ctx, AccessControlScopeContextKey, scope)
+}
+
+// ActingAsScopeFromContext extracts the caller's acting-as scope from a
+// context.Context. Returns the scope and true if found, or empty string and
+// false if not.
+func ActingAsScopeFromContext(ctx context.Context) (string, bool) {
+	if v := ctx.Value(AccessControlScopeContextKey); v != nil {
+		if scope, ok := v.(string); ok {
+			return scope, true
 		}
 	}
 	return "", false

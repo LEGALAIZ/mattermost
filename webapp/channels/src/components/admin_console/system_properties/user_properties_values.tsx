@@ -42,6 +42,7 @@ const UserPropertyValues = ({
 }: Props) => {
     const {formatMessage} = useIntl();
     const pluginDisplayName = useSelector((state: GlobalState) => getPluginDisplayName(state, field.attrs?.source_plugin_id));
+    const pluginsById = useSelector((state: GlobalState) => state.plugins?.plugins ?? {});
     const isOrphaned = useIsFieldOrphaned(field);
 
     const [query, setQuery] = React.useState('');
@@ -88,6 +89,52 @@ const UserPropertyValues = ({
         processQuery(query);
         event.preventDefault();
     };
+
+    // Owner-managed fields are read-only here: ownership is assigned by the
+    // owning integration (e.g. the SCIM plugin), not from this screen. Render
+    // a non-interactive badge per owner showing the plugin provenance and its
+    // scope(s).
+    const owners = field.attrs?.owners ?? [];
+    if (owners.length > 0) {
+        const ownerBadges = owners.map((owner, idx) => {
+            const provenance = owner.type === 'plugin' ? (pluginsById[owner.id]?.name || owner.id) : owner.id;
+            const key = `${field.name}-owner-${owner.type}-${owner.id}-${idx}`;
+
+            let content: React.ReactNode;
+            if (owner.scopes?.length) {
+                content = (
+                    <FormattedMessage
+                        id='admin.system_properties.user_properties.table.values.owner.scoped'
+                        defaultMessage='{provenance}: {scopes}'
+                        values={{provenance, scopes: owner.scopes.join(', ')}}
+                    />
+                );
+            } else {
+                content = provenance;
+            }
+
+            return (
+                <span
+                    className='user-property-field-values__chip'
+                    key={key}
+                    data-testid={`user-property-field-values__owner-${field.name}-${owner.id}`}
+                >
+                    {content}
+                </span>
+            );
+        });
+
+        return (
+            <span className='user-property-field-values'>
+                <PowerPlugOutlineIcon size={18}/>
+                <FormattedMessage
+                    id='admin.system_properties.user_properties.table.values.managed_by'
+                    defaultMessage='Managed by: {owners}'
+                    values={{owners: <FormattedList value={ownerBadges}/>}}
+                />
+            </span>
+        );
+    }
 
     if (field.attrs.ldap || field.attrs.saml) {
         const syncedProperties = [

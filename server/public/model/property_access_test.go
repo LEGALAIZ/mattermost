@@ -10,6 +10,52 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestIsValidPropertyOwnerType(t *testing.T) {
+	for _, ownerType := range []string{
+		PropertyOwnerTypePlugin,
+		PropertyOwnerTypeService,
+		PropertyOwnerTypeRole,
+		PropertyOwnerTypeUser,
+	} {
+		assert.True(t, IsValidPropertyOwnerType(ownerType), ownerType)
+	}
+	assert.False(t, IsValidPropertyOwnerType(""))
+	assert.False(t, IsValidPropertyOwnerType("bogus"))
+}
+
+func TestGetPropertyFieldOwners(t *testing.T) {
+	t.Run("returns nil when no attrs or no owners", func(t *testing.T) {
+		assert.Nil(t, GetPropertyFieldOwners(nil))
+		assert.Nil(t, GetPropertyFieldOwners(&PropertyField{}))
+		assert.False(t, HasPropertyFieldOwners(&PropertyField{}))
+	})
+
+	t.Run("reads the typed []PropertyOwner shape", func(t *testing.T) {
+		field := &PropertyField{Attrs: StringInterface{
+			PropertyAttrsOwners: []PropertyOwner{
+				{ID: "com.mattermost.scim", Type: PropertyOwnerTypePlugin, Scopes: []string{"entra"}},
+			},
+		}}
+		owners := GetPropertyFieldOwners(field)
+		require.Len(t, owners, 1)
+		assert.Equal(t, "com.mattermost.scim", owners[0].ID)
+		assert.True(t, HasPropertyFieldOwners(field))
+	})
+
+	t.Run("reads the generic JSON-round-tripped shape", func(t *testing.T) {
+		field := &PropertyField{Attrs: StringInterface{
+			PropertyAttrsOwners: []any{
+				map[string]any{"id": "com.mattermost.scim", "type": "plugin", "scopes": []any{"entra"}},
+			},
+		}}
+		owners := GetPropertyFieldOwners(field)
+		require.Len(t, owners, 1)
+		assert.Equal(t, "com.mattermost.scim", owners[0].ID)
+		assert.Equal(t, PropertyOwnerTypePlugin, owners[0].Type)
+		assert.Equal(t, []string{"entra"}, owners[0].Scopes)
+	})
+}
+
 func TestIsKnownPropertyAccessMode(t *testing.T) {
 	tests := []struct {
 		name       string
