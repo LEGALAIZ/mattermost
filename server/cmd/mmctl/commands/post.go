@@ -134,6 +134,9 @@ func postCreateCmdF(c client.Client, cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if message == "" && len(fileIDs) == 0 {
+		return errors.New("a post must have a message or at least one file attachment")
+	}
 
 	post := &model.Post{
 		ChannelId: channelID,

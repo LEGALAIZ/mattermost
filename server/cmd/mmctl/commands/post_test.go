@@ -534,6 +534,37 @@ func (s *MmctlUnitTestSuite) TestPostCreateCmdF() {
 		s.Len(printer.GetErrorLines(), 0)
 	})
 
+	s.Run("fails when uploads return no file infos and message is empty", func() {
+		printer.Clean()
+		channelArg := "example-channel"
+		channelID := "channel-id"
+		fileContent := []byte("file contents")
+		filePath := filepath.Join(s.T().TempDir(), "attachment.txt")
+		s.Require().NoError(os.WriteFile(filePath, fileContent, 0600))
+
+		mockChannel := model.Channel{Id: channelID, Name: channelArg}
+
+		cmd := &cobra.Command{}
+		cmd.Flags().String("message", "", "")
+		cmd.Flags().StringArray("file", []string{filePath}, "")
+
+		s.client.
+			EXPECT().
+			GetChannel(context.TODO(), channelArg).
+			Return(&mockChannel, &model.Response{}, nil).
+			Times(1)
+
+		s.client.
+			EXPECT().
+			UploadFile(context.TODO(), fileContent, channelID, "attachment.txt").
+			Return(&model.FileUploadResponse{FileInfos: nil}, &model.Response{}, nil).
+			Times(1)
+
+		err := postCreateCmdF(s.client, cmd, []string{channelArg})
+		s.Require().EqualError(err, "a post must have a message or at least one file attachment")
+		s.Len(printer.GetErrorLines(), 0)
+	})
+
 	s.Run("create a post when an upload returns no file infos", func() {
 		printer.Clean()
 		msgArg := "some text"
