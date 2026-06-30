@@ -3318,16 +3318,6 @@ func rotateUserAccessToken(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.IsRemote() {
-		c.SetPermissionError(model.PermissionCreateUserAccessToken)
-		return
-	}
-
-	if !accessToken.IsActive {
-		c.Err = model.NewAppError("rotateUserAccessToken", "api.user.rotate_user_access_token.disabled_token.app_error", nil, "", http.StatusBadRequest)
-		return
-	}
-
 	model.AddEventParameterAuditableToAuditRec(auditRec, "user", user)
 
 	if !c.App.SessionHasPermissionToUserOrBot(c.AppContext, *c.AppContext.Session(), accessToken.UserId) {
@@ -3337,6 +3327,16 @@ func rotateUserAccessToken(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	if user.IsSystemAdmin() && !c.App.SessionHasPermissionTo(*c.AppContext.Session(), model.PermissionManageSystem) {
 		c.SetPermissionError(model.PermissionManageSystem)
+		return
+	}
+
+	if user.IsRemote() {
+		c.SetPermissionError(model.PermissionCreateUserAccessToken)
+		return
+	}
+
+	if !accessToken.IsActive {
+		c.Err = model.NewAppError("rotateUserAccessToken", "api.user.rotate_user_access_token.disabled_token.app_error", nil, "", http.StatusBadRequest)
 		return
 	}
 

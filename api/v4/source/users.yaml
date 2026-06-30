@@ -2744,7 +2744,7 @@
         includes the new token secret (shown once, like token creation).
 
 
-        __Minimum server version__: 10.8
+        __Minimum server version__: 10.10
 
 
         ##### Permissions
