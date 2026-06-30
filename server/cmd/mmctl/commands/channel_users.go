@@ -176,19 +176,19 @@ func channelUsersListCmdF(c client.Client, cmd *cobra.Command, args []string) er
 	}
 
 	all, _ := cmd.Flags().GetBool("all")
+	perPage, _ := cmd.Flags().GetInt("per-page")
 
 	var members model.ChannelMembers
 	if all {
 		var err error
 		members, err = getPages(func(page, perPage int, etag string) ([]model.ChannelMember, *model.Response, error) {
 			return c.GetChannelMembers(context.TODO(), channel.Id, page, perPage, etag)
-		}, DefaultPageSize)
+		}, perPage)
 		if err != nil {
 			return errors.Errorf("unable to list users of channel %q: %s", channel.Name, err.Error())
 		}
 	} else {
 		page, _ := cmd.Flags().GetInt("page")
-		perPage, _ := cmd.Flags().GetInt("per-page")
 		var err error
 		members, _, err = c.GetChannelMembers(context.TODO(), channel.Id, page, perPage, "")
 		if err != nil {
