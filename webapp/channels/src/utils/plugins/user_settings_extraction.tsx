@@ -17,7 +17,7 @@ type SectionExtra = {
     onSubmit?: PluginConfigurationSection['onSubmit'];
 };
 
-export function extractPluginConfiguration(pluginConfiguration: unknown, pluginId: string): PluginConfiguration | undefined {
+export function extractPluginUserSettings(pluginConfiguration: unknown, pluginId: string): PluginConfiguration | undefined {
     const schema = extractSettingsSchema<SchemaExtra, SectionExtra>(pluginConfiguration, pluginId, {
         extraValidation: (raw) => {
             // The action is best-effort: a malformed action is dropped but never

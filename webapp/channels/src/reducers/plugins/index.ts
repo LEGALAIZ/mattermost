@@ -12,7 +12,7 @@ import {UserTypes} from 'mattermost-redux/action_types';
 
 import {ActionTypes} from 'utils/constants';
 import {extractChannelSettingsTab} from 'utils/plugins/channel_settings_extraction';
-import {extractPluginConfiguration} from 'utils/plugins/plugin_setting_extraction';
+import {extractPluginUserSettings} from 'utils/plugins/user_settings_extraction';
 
 import type {MMAction} from 'types/store';
 import type {
@@ -496,7 +496,7 @@ function userSettings(state: PluginsState['userSettings'] = {}, action: MMAction
     switch (action.type) {
     case ActionTypes.RECEIVED_PLUGIN_USER_SETTINGS:
         if (action.data) {
-            const extractedConfiguration = extractPluginConfiguration(action.data.setting, action.data.pluginId);
+            const extractedConfiguration = extractPluginUserSettings(action.data.setting, action.data.pluginId);
             if (!extractedConfiguration) {
                 // eslint-disable-next-line no-console
                 console.warn(`Plugin ${action.data.pluginId} is trying to register an invalid configuration. Contact the plugin developer to fix this issue.`);

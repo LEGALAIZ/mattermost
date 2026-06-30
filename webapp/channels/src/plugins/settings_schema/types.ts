@@ -3,15 +3,12 @@
 
 import type React from 'react';
 
-// Generic, context-agnostic settings schema primitives.
-// Channel settings (and, in the future, user settings) build on top of these
-// by intersecting context-specific fields such as a save handler.
-//
-// This module is the intended canonical base for declarative plugin settings.
-// User Settings (`types/plugins/user_settings.ts`,
-// `utils/plugins/plugin_setting_extraction.tsx`,
-// `components/user_settings/plugin/radio*.tsx`) duplicate this stack today and
-// should be migrated onto it in a follow-up PR (TODO: add tracking ticket).
+// Generic, context-agnostic settings schema primitives shared by every
+// declarative plugin settings surface. Each context builds on top of these by
+// intersecting its own fields: Channel Settings adds a save handler
+// (`types/plugins/channel_settings.ts`) and User Settings adds per-section save
+// side effects and a tab action (`types/plugins/user_settings.ts`). Extraction
+// and controls are likewise shared (`extract_settings_schema.tsx`, `controls/`).
 
 export type BaseSetting = {
 
