@@ -74,7 +74,9 @@ func (s *SqlScheduledRecapStore) Save(scheduledRecap *model.ScheduledRecap) (*mo
 }
 
 func (s *SqlScheduledRecapStore) SaveIfUnderLimit(scheduledRecap *model.ScheduledRecap, limit int) (*model.ScheduledRecap, error) {
-	tx, err := s.GetMaster().Begin()
+	// SERIALIZABLE prevents the COUNT/INSERT check from racing under READ COMMITTED;
+	// the retry layer retries the serialization failures this can surface.
+	tx, err := s.GetMaster().BeginWithIsolation(&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to begin transaction for SaveIfUnderLimit")
 	}

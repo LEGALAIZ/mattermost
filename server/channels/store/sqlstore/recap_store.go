@@ -121,7 +121,9 @@ func (s *SqlRecapStore) SaveRecap(recap *model.Recap) (*model.Recap, error) {
 }
 
 func (s *SqlRecapStore) SaveRecapIfUnderDailyLimit(recap *model.Recap, since int64, limit int) (*model.Recap, error) {
-	tx, err := s.GetMaster().Begin()
+	// SERIALIZABLE prevents the COUNT/INSERT check from racing under READ COMMITTED;
+	// the retry layer retries the serialization failures this can surface.
+	tx, err := s.GetMaster().BeginWithIsolation(&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to begin transaction for SaveRecapIfUnderDailyLimit")
 	}
