@@ -779,7 +779,7 @@ func (a *App) RotateUserAccessToken(rctx request.CTX, token *model.UserAccessTok
 	token.ExpiresAt = expiresAt
 
 	if !user.IsBot {
-		if err := a.Srv().EmailService.SendUserAccessTokenAddedEmail(user.Email, user.Locale, a.GetSiteURL()); err != nil {
+		if err := a.Srv().EmailService.SendUserAccessTokenRotatedEmail(user.Email, user.Locale, a.GetSiteURL()); err != nil {
 			rctx.Logger().Error("Unable to send user access token rotated email", mlog.Err(err), mlog.String("user_id", user.Id))
 		}
 	}

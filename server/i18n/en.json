@@ -4423,6 +4423,18 @@
     "translation": "[{{ .SiteName }}] Personal access token added to your account"
   },
   {
+    "id": "api.templates.user_access_token_rotated_body.info",
+    "translation": "A personal access token on your account at {{ .SiteURL }} was rotated. The previous token secret is no longer valid."
+  },
+  {
+    "id": "api.templates.user_access_token_rotated_body.title",
+    "translation": "Personal access token rotated"
+  },
+  {
+    "id": "api.templates.user_access_token_rotated_subject",
+    "translation": "[{{ .SiteName }}] Personal access token rotated"
+  },
+  {
     "id": "api.templates.username_change_body.info",
     "translation": "Your username for {{.TeamDisplayName}} has been changed to {{.NewUsername}}."
   },
@@ -9705,6 +9717,14 @@
   {
     "id": "app.user_access_token.update_token_enable.app_error",
     "translation": "Unable to enable the access token."
+  },
+  {
+    "id": "app.user_access_token.rotate.app_error",
+    "translation": "Unable to rotate the access token."
+  },
+  {
+    "id": "api.user.rotate_user_access_token.disabled_token.app_error",
+    "translation": "Cannot rotate a disabled access token."
   },
   {
     "id": "app.user_terms_of_service.delete.app_error",
