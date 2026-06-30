@@ -204,8 +204,13 @@ func (s *MmctlE2ETestSuite) TestChannelUsersListCmd() {
 
 		var found bool
 		for _, line := range printer.GetLines() {
-			if out, ok := line.(channelUserOut); ok && out.Id == user.Id {
+			out, ok := line.(channelUserOut)
+			s.Require().True(ok)
+			if out.Id == user.Id {
 				found = true
+				s.Require().Equal(user.Username, out.Username)
+				s.Require().Equal(user.Email, out.Email)
+				s.Require().NotEmpty(out.Roles)
 			}
 		}
 		s.Require().True(found, "expected the added user to be listed as a channel member")
