@@ -4194,6 +4194,34 @@ func (s *apiRPCServer) DeleteChannel(args *Z_DeleteChannelArgs, returns *Z_Delet
 	return nil
 }
 
+type Z_RestoreChannelArgs struct {
+	A string
+}
+
+type Z_RestoreChannelReturns struct {
+	A *model.AppError
+}
+
+func (g *apiRPCClient) RestoreChannel(channelId string) *model.AppError {
+	_args := &Z_RestoreChannelArgs{channelId}
+	_returns := &Z_RestoreChannelReturns{}
+	if err := g.client.Call("Plugin.RestoreChannel", _args, _returns); err != nil {
+		log.Printf("RPC call to RestoreChannel API failed: %s", err.Error())
+	}
+	return _returns.A
+}
+
+func (s *apiRPCServer) RestoreChannel(args *Z_RestoreChannelArgs, returns *Z_RestoreChannelReturns) error {
+	if hook, ok := s.impl.(interface {
+		RestoreChannel(channelId string) *model.AppError
+	}); ok {
+		returns.A = hook.RestoreChannel(args.A)
+	} else {
+		return encodableError(fmt.Errorf("API RestoreChannel called but not implemented."))
+	}
+	return nil
+}
+
 type Z_GetPublicChannelsForTeamArgs struct {
 	A string
 	B int

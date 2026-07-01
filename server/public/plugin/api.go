@@ -447,6 +447,12 @@ type API interface {
 	// Minimum server version: 5.2
 	DeleteChannel(channelId string) *model.AppError
 
+	// RestoreChannel restores a previously deleted (archived) channel.
+	//
+	// @tag Channel
+	// Minimum server version: 11.9
+	RestoreChannel(channelId string) *model.AppError
+
 	// GetPublicChannelsForTeam gets a list of all channels.
 	//
 	// @tag Channel

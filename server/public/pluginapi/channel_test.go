@@ -25,6 +25,30 @@ func TestGetMembers(t *testing.T) {
 	})
 }
 
+func TestRestoreChannel(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		api := &plugintest.API{}
+		defer api.AssertExpectations(t)
+		client := pluginapi.NewClient(api, &plugintest.Driver{})
+
+		api.On("RestoreChannel", "channelID").Return(nil)
+
+		err := client.Channel.Restore("channelID")
+		require.NoError(t, err)
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		api := &plugintest.API{}
+		defer api.AssertExpectations(t)
+		client := pluginapi.NewClient(api, &plugintest.Driver{})
+
+		api.On("RestoreChannel", "channelID").Return(newAppError())
+
+		err := client.Channel.Restore("channelID")
+		require.EqualError(t, err, "here: id, an error occurred")
+	})
+}
+
 func TestGetTeamChannelByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		api := &plugintest.API{}

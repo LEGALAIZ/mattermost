@@ -126,6 +126,13 @@ func (c *ChannelService) Delete(channelID string) error {
 	return normalizeAppErr(c.api.DeleteChannel(channelID))
 }
 
+// Restore restores a previously deleted (archived) channel.
+//
+// Minimum server version: 11.9
+func (c *ChannelService) Restore(channelID string) error {
+	return normalizeAppErr(c.api.RestoreChannel(channelID))
+}
+
 // GetChannelStats gets statistics for a channel.
 //
 // Minimum server version: 5.6

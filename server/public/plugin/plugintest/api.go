@@ -4887,6 +4887,26 @@ func (_m *API) RequestTrialLicense(requesterID string, users int, termsAccepted 
 	return r0
 }
 
+// RestoreChannel provides a mock function with given fields: channelId
+func (_m *API) RestoreChannel(channelId string) *model.AppError {
+	ret := _m.Called(channelId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RestoreChannel")
+	}
+
+	var r0 *model.AppError
+	if rf, ok := ret.Get(0).(func(string) *model.AppError); ok {
+		r0 = rf(channelId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.AppError)
+		}
+	}
+
+	return r0
+}
+
 // RestoreGroup provides a mock function with given fields: groupID
 func (_m *API) RestoreGroup(groupID string) (*model.Group, *model.AppError) {
 	ret := _m.Called(groupID)
