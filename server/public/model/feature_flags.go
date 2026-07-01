@@ -144,10 +144,10 @@ type FeatureFlags struct {
 	// Enable the new mm_blocks Interactive Messages framework
 	MmBlocksEnabled bool
 
-	// ClusterGracefulDrain enables waiting for peer silence after memberlist.Leave()
-	// before closing the gossip socket during shutdown. When disabled, the node closes
-	// immediately after Leave(), which can cause a brief burst of "SendClusterMessage
-	// failed" errors on peers during rolling restarts.
+	// ClusterGracefulDrain enables waiting for peer silence before closing the gossip
+	// socket during shutdown. Otherwise, peers keep sending messages before the gossip
+	// leave message finishes propagating and spam the logs with errors about the peer
+	// being unreachable.
 	ClusterGracefulDrain bool
 }
 
