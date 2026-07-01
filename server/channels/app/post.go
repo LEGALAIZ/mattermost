@@ -8,15 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"maps"
-	"slices"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
@@ -300,19 +299,11 @@ func (a *App) CreatePost(rctx request.CTX, post *model.Post, channel *model.Chan
 	}
 
 	// Strip mm_blocks_actions from posts that are neither bot-authored nor
-	// created via an integration session. Either signal is sufficient:
-	//   - user.IsBot (DB-verified) covers PluginAPI.CreatePost where the
-	//     plugin's static rctx has no integration markers but the post
-	//     is authored by a bot user.
-	//   - rctx.Session().IsIntegration() (server-derived, unspoofable)
-	//     covers REST callers using bot tokens, PATs, or OAuth apps.
-	//
-	// Webhooks are handled separately at their entry point
-	// (CreateWebhookPost) — webhook payloads are user-controlled even
-	// when bound to a bot user, so the prop is dropped before the post
-	// reaches CreatePost. See TestCreateWebhookPostStripsMmBlocksActions.
+	// created via an integration session. CreateWebhookPost passes
+	// AllowMmBlocksActions instead of relying on from_webhook, which clients
+	// can forge on the public create-post API when hardened mode is off.
 	if post.GetProp(model.PostPropsMmBlocksActions) != nil {
-		if !user.IsBot && !rctx.Session().IsIntegration() {
+		if !user.IsBot && !rctx.Session().IsIntegration() && !flags.AllowMmBlocksActions {
 			post.DelProp(model.PostPropsMmBlocksActions)
 		}
 	}
@@ -481,7 +472,7 @@ func (a *App) CreatePost(rctx request.CTX, post *model.Post, channel *model.Chan
 		}
 	}
 
-	a.applyPostWillBeConsumedHook(&rpost)
+	a.applyPostWillBeConsumedHook(rctx, &rpost)
 
 	if rpost.RootId != "" {
 		if appErr := a.ResolvePersistentNotification(rctx, parentPostList.Posts[post.RootId], rpost.UserId); appErr != nil {
@@ -574,8 +565,8 @@ func (a *App) attachFileIDsToPost(rctx request.CTX, postID, channelID, userID st
 //
 // If channel is nil, FillInPostProps will look up the channel corresponding to the post.
 func (a *App) FillInPostProps(rctx request.CTX, post *model.Post, channel *model.Channel) *model.AppError {
-	// Use ChannelMentionsAll to scan both message and attachments
-	channelMentions := post.ChannelMentionsAll()
+	// Use ChannelMentionsAll (post.AllStrings) for ~mentions in message, attachments, and interactive payloads.
+	channelMentions := post.ChannelMentionsAllWithOptions(model.AllStringsOptions{OmitInteractiveBlocks: !a.Config().FeatureFlags.MmBlocksEnabled})
 	channelMentionsProp := make(map[string]any)
 
 	if len(channelMentions) > 0 {
@@ -780,13 +771,6 @@ func (a *App) SendEphemeralPost(rctx request.CTX, userID string, post *model.Pos
 		post.SetProps(make(model.StringInterface))
 	}
 
-	// mm_blocks_actions cannot be resolved on click for ephemeral posts (no
-	// DB row, no per-action cookie transport). Drop the prop here so the
-	// client doesn't render a non-functional button.
-	if post.GetProp(model.PostPropsMmBlocksActions) != nil {
-		post.DelProp(model.PostPropsMmBlocksActions)
-	}
-
 	post.GenerateActionIds()
 	message := model.NewWebSocketEvent(model.WebsocketEventEphemeralMessage, "", post.ChannelId, userID, nil, "")
 	post = a.PreparePostForClientWithEmbedsAndImages(rctx, post, &model.PreparePostForClientOpts{IsNewPost: true, IncludePriority: true})
@@ -819,13 +803,6 @@ func (a *App) UpdateEphemeralPost(rctx request.CTX, userID string, post *model.P
 	post.UpdateAt = model.GetMillis()
 	if post.GetProps() == nil {
 		post.SetProps(make(model.StringInterface))
-	}
-
-	// mm_blocks_actions cannot be resolved on click for ephemeral posts (no
-	// DB row, no per-action cookie transport). Drop the prop here so the
-	// client doesn't render a non-functional button.
-	if post.GetProp(model.PostPropsMmBlocksActions) != nil {
-		post.DelProp(model.PostPropsMmBlocksActions)
 	}
 
 	post.GenerateActionIds()
@@ -1061,7 +1038,7 @@ func (a *App) UpdatePost(rctx request.CTX, receivedUpdatedPost *model.Post, upda
 		}
 	}
 
-	a.applyPostWillBeConsumedHook(&rpost)
+	a.applyPostWillBeConsumedHook(rctx, &rpost)
 
 	message := model.NewWebSocketEvent(model.WebsocketEventPostEdited, "", rpost.ChannelId, "", nil, "")
 
@@ -1350,7 +1327,7 @@ func (a *App) GetPostsPage(rctx request.CTX, options model.GetPostsOptions) (*mo
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1379,7 +1356,7 @@ func (a *App) GetPostsForView(rctx request.CTX, options model.GetPostsOptions) (
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1406,7 +1383,7 @@ func (a *App) GetPosts(rctx request.CTX, channelID string, offset int, limit int
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1443,7 +1420,7 @@ func (a *App) GetPostsSince(rctx request.CTX, options model.GetPostsSinceOptions
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1540,7 +1517,7 @@ func (a *App) GetSinglePost(rctx request.CTX, postID string, includeDeleted bool
 		return nil, model.NewAppError("GetSinglePost", "app.post.cloud.get.app_error", nil, "", http.StatusForbidden)
 	}
 
-	a.applyPostWillBeConsumedHook(&post)
+	a.applyPostWillBeConsumedHook(rctx, &post)
 
 	return post, nil
 }
@@ -1578,7 +1555,7 @@ func (a *App) GetPostThread(rctx request.CTX, postID string, opts model.GetPosts
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(posts.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, posts.Posts)
 
 	return posts, nil
 }
@@ -1600,7 +1577,7 @@ func (a *App) GetFlaggedPosts(rctx request.CTX, userID string, offset int, limit
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1622,7 +1599,7 @@ func (a *App) GetFlaggedPostsForTeam(rctx request.CTX, userID, teamID string, of
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1644,7 +1621,7 @@ func (a *App) GetFlaggedPostsForChannel(rctx request.CTX, userID, channelID stri
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1688,7 +1665,7 @@ func (a *App) GetPermalinkPost(rctx request.CTX, postID string, userID string) (
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(list.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, list.Posts)
 
 	return list, nil
 }
@@ -1724,7 +1701,7 @@ func (a *App) GetPostsBeforePost(rctx request.CTX, options model.GetPostsOptions
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1760,7 +1737,7 @@ func (a *App) GetPostsAfterPost(rctx request.CTX, options model.GetPostsOptions)
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
@@ -1804,18 +1781,18 @@ func (a *App) GetPostsAroundPost(rctx request.CTX, before bool, options model.Ge
 		return nil, appErr
 	}
 
-	a.applyPostsWillBeConsumedHook(postList.Posts)
+	a.applyPostsWillBeConsumedHook(rctx, postList.Posts)
 
 	return postList, nil
 }
 
-func (a *App) GetPostAfterTime(channelID string, time int64, collapsedThreads bool) (*model.Post, *model.AppError) {
+func (a *App) GetPostAfterTime(rctx request.CTX, channelID string, time int64, collapsedThreads bool) (*model.Post, *model.AppError) {
 	post, err := a.Srv().Store().Post().GetPostAfterTime(channelID, time, collapsedThreads)
 	if err != nil {
 		return nil, model.NewAppError("GetPostAfterTime", "app.post.get_post_after_time.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
 	}
 
-	a.applyPostWillBeConsumedHook(&post)
+	a.applyPostWillBeConsumedHook(rctx, &post)
 
 	return post, nil
 }
@@ -2539,7 +2516,7 @@ func (a *App) countThreadMentions(rctx request.CTX, user *model.User, post *mode
 
 	for _, p := range posts {
 		if p.CreateAt >= timestamp {
-			mentions := getExplicitMentions(p, keywords)
+			mentions := getExplicitMentions(p, keywords, a.Config().FeatureFlags.MmBlocksEnabled)
 			if _, ok := mentions.Mentions[user.Id]; ok {
 				count += 1
 			}
@@ -2601,7 +2578,7 @@ func (a *App) countMentionsFromPost(rctx request.CTX, user *model.User, post *mo
 	count := 0
 	countRoot := 0
 	urgentCount := 0
-	if isPostMention(user, post, keywords, thread.Posts, mentionedByThread, checkForCommentMentions) {
+	if isPostMention(user, post, keywords, thread.Posts, mentionedByThread, checkForCommentMentions, a.Config().FeatureFlags.MmBlocksEnabled) {
 		count += 1
 		if post.RootId == "" {
 			countRoot += 1
@@ -2633,7 +2610,7 @@ func (a *App) countMentionsFromPost(rctx request.CTX, user *model.User, post *mo
 
 		mentionPostIds := make([]string, 0)
 		for _, postID := range postList.Order {
-			if isPostMention(user, postList.Posts[postID], keywords, postList.Posts, mentionedByThread, checkForCommentMentions) {
+			if isPostMention(user, postList.Posts[postID], keywords, postList.Posts, mentionedByThread, checkForCommentMentions, a.Config().FeatureFlags.MmBlocksEnabled) {
 				count += 1
 				if postList.Posts[postID].RootId == "" {
 					mentionPostIds = append(mentionPostIds, postID)
@@ -2707,14 +2684,14 @@ func isCommentMention(user *model.User, post *model.Post, otherPosts map[string]
 	return mentioned
 }
 
-func isPostMention(user *model.User, post *model.Post, keywords MentionKeywords, otherPosts map[string]*model.Post, mentionedByThread map[string]bool, checkForCommentMentions bool) bool {
+func isPostMention(user *model.User, post *model.Post, keywords MentionKeywords, otherPosts map[string]*model.Post, mentionedByThread map[string]bool, checkForCommentMentions bool, mmBlocksEnabled bool) bool {
 	// Prevent the user from mentioning themselves
 	if post.UserId == user.Id && post.GetProp(model.PostPropsFromWebhook) != "true" {
 		return false
 	}
 
 	// Check for keyword mentions
-	mentions := getExplicitMentions(post, keywords)
+	mentions := getExplicitMentions(post, keywords, mmBlocksEnabled)
 	if _, ok := mentions.Mentions[user.Id]; ok {
 		return true
 	}
@@ -2983,8 +2960,9 @@ func (a *App) GetPostInfo(rctx request.CTX, postID string, channel *model.Channe
 	return &info, nil
 }
 
-func (a *App) applyPostsWillBeConsumedHook(posts map[string]*model.Post) {
-	if !a.Config().FeatureFlags.ConsumePostHook {
+func (a *App) applyPostsWillBeConsumedHook(rctx request.CTX, posts map[string]*model.Post) {
+	env := a.GetPluginsEnvironment()
+	if env == nil || (!env.HasPluginImplementing(plugin.MessagesWillBeConsumedID) && !env.HasPluginImplementing(plugin.MessagesWillBeConsumedWithContextID)) {
 		return
 	}
 
@@ -3000,10 +2978,24 @@ func (a *App) applyPostsWillBeConsumedHook(posts map[string]*model.Post) {
 		}
 		return true
 	}, plugin.MessagesWillBeConsumedID)
+
+	pluginContext := pluginContext(rctx)
+	a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
+		postReplacements := hooks.MessagesWillBeConsumedWithContext(pluginContext, postsSlice)
+		for _, postReplacement := range postReplacements {
+			posts[postReplacement.Id] = postReplacement
+		}
+		return true
+	}, plugin.MessagesWillBeConsumedWithContextID)
 }
 
-func (a *App) applyPostWillBeConsumedHook(post **model.Post) {
-	if !a.Config().FeatureFlags.ConsumePostHook || (*post).Type == model.PostTypeBurnOnRead {
+func (a *App) applyPostWillBeConsumedHook(rctx request.CTX, post **model.Post) {
+	if (*post).Type == model.PostTypeBurnOnRead {
+		return
+	}
+
+	env := a.GetPluginsEnvironment()
+	if env == nil || (!env.HasPluginImplementing(plugin.MessagesWillBeConsumedID) && !env.HasPluginImplementing(plugin.MessagesWillBeConsumedWithContextID)) {
 		return
 	}
 
@@ -3015,6 +3007,15 @@ func (a *App) applyPostWillBeConsumedHook(post **model.Post) {
 		}
 		return true
 	}, plugin.MessagesWillBeConsumedID)
+
+	pluginContext := pluginContext(rctx)
+	a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
+		rp := hooks.MessagesWillBeConsumedWithContext(pluginContext, ps)
+		if len(rp) > 0 {
+			(*post) = rp[0]
+		}
+		return true
+	}, plugin.MessagesWillBeConsumedWithContextID)
 }
 
 func makePostLink(siteURL, teamName, postID string) string {

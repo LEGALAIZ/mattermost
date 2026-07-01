@@ -14,7 +14,6 @@ import {isPostEphemeral} from 'mattermost-redux/utils/post_utils';
 
 import ActionsMenu from 'components/actions_menu';
 import CommentIcon from 'components/common/comment_icon';
-import {usePluginVisibilityInSharedChannel} from 'components/common/hooks/usePluginVisibilityInSharedChannel';
 import DotMenu from 'components/dot_menu';
 import PostFlagIcon from 'components/post_view/post_flag_icon';
 import PostReaction from 'components/post_view/post_reaction';
@@ -67,6 +66,7 @@ const PostOptions = (props: Props): JSX.Element => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showDotMenu, setShowDotMenu] = useState(false);
     const [showActionsMenu, setShowActionsMenu] = useState(false);
+    const [showPluginMenu, setShowPluginMenu] = useState(false);
 
     const toggleEmojiPicker = useCallback((show: boolean) => {
         setShowEmojiPicker(show);
@@ -121,8 +121,13 @@ const PostOptions = (props: Props): JSX.Element => {
         props.handleDropdownOpened!(open);
     };
 
+    const handlePluginMenuOpened = (open: boolean) => {
+        setShowPluginMenu(open);
+        props.handleDropdownOpened!(open);
+    };
+
     const isPostDeleted = post && post.state === Posts.POST_DELETED;
-    const hoverLocal = props.hover || showEmojiPicker || showDotMenu || showActionsMenu;
+    const hoverLocal = props.hover || showEmojiPicker || showDotMenu || showActionsMenu || showPluginMenu;
     const isBurnOnReadPost = props.isBurnOnReadPost || false;
     const showCommentIcon = !isBurnOnReadPost && (isFromAutoResponder || (!systemMessage && (isMobileView ||
             hoverLocal || (!post.root_id && Boolean(props.hasReplies)) ||
@@ -209,9 +214,8 @@ const PostOptions = (props: Props): JSX.Element => {
     );
 
     let pluginItems: ReactNode = null;
-    const pluginItemsVisible = usePluginVisibilityInSharedChannel(post.channel_id);
 
-    if ((!isEphemeral && !post.failed && !systemMessage && !isBurnOnReadPost) && hoverLocal && pluginItemsVisible) {
+    if ((!isEphemeral && !post.failed && !systemMessage && !isBurnOnReadPost) && hoverLocal) {
         pluginItems = props.pluginActions?.
             map((item) => {
                 if (item.component) {
@@ -221,6 +225,7 @@ const PostOptions = (props: Props): JSX.Element => {
                             <PluggableErrorBoundary pluginId={item.pluginId}>
                                 <Component
                                     post={props.post}
+                                    handleDropdownOpened={handlePluginMenuOpened}
                                 />
                             </PluggableErrorBoundary>
                         </li>

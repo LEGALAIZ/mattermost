@@ -1567,7 +1567,7 @@ func TestGetExplicitMentions(t *testing.T) {
 				HereMentioned: true,
 			},
 		},
-		"should include the mentions from attachment field values (but not field titles)": {
+		"should include the mentions from attachment field values and titles": {
 			Message: "this is a message",
 			Attachments: []*model.MessageAttachment{
 				{
@@ -1582,6 +1582,7 @@ func TestGetExplicitMentions(t *testing.T) {
 			Keywords: map[string][]string{"@user1": {id1}, "@user2": {id2}},
 			Expected: &MentionResults{
 				Mentions: map[string]MentionType{
+					id1: KeywordMention,
 					id2: KeywordMention,
 				},
 			},
@@ -1655,11 +1656,32 @@ func TestGetExplicitMentions(t *testing.T) {
 				},
 			}
 
-			m := getExplicitMentions(post, mapsToMentionKeywords(tc.Keywords, tc.Groups))
+			m := getExplicitMentions(post, mapsToMentionKeywords(tc.Keywords, tc.Groups), true)
 
 			assert.EqualValues(t, tc.Expected, m)
 		})
 	}
+
+	t.Run("mm blocks disabled omits interactive mentions", func(t *testing.T) {
+		userID := model.NewId()
+
+		post := &model.Post{
+			Message: "hello",
+			Props: model.StringInterface{
+				model.PostPropsMmBlocks: []any{
+					map[string]any{"type": "text", "text": "ping @user from mm_blocks"},
+				},
+			},
+		}
+		keywords := mapsToMentionKeywords(map[string][]string{"@user": {userID}}, nil)
+
+		withBlocks := getExplicitMentions(post, keywords, true)
+		require.Len(t, withBlocks.Mentions, 1)
+		require.Equal(t, KeywordMention, withBlocks.Mentions[userID])
+
+		withoutBlocks := getExplicitMentions(post, keywords, false)
+		require.Empty(t, withoutBlocks.Mentions)
+	})
 }
 
 func TestGetExplicitMentionsAtHere(t *testing.T) {
@@ -1709,7 +1731,7 @@ func TestGetExplicitMentionsAtHere(t *testing.T) {
 		}
 		for message, shouldMention := range cases {
 			post := &model.Post{Message: message}
-			m := getExplicitMentions(post, nil)
+			m := getExplicitMentions(post, nil, true)
 			require.False(t, m.HereMentioned && !shouldMention, "shouldn't have mentioned @here with \"%v\"")
 			require.False(t, !m.HereMentioned && shouldMention, "should've mentioned @here with \"%v\"")
 		}
@@ -1720,6 +1742,7 @@ func TestGetExplicitMentionsAtHere(t *testing.T) {
 		m := getExplicitMentions(
 			&model.Post{Message: "@here @user @potential"},
 			mapsToMentionKeywords(map[string][]string{"@user": {id}}, nil),
+			true,
 		)
 		require.True(t, m.HereMentioned, "should've mentioned @here with \"@here @user\"")
 		require.Len(t, m.Mentions, 1)
@@ -1733,6 +1756,7 @@ func TestGetExplicitMentionsAtHere(t *testing.T) {
 		m := getExplicitMentions(
 			&model.Post{Message: "@potential. test"},
 			mapsToMentionKeywords(map[string][]string{"@user": {id}}, nil),
+			true,
 		)
 		require.Equal(t, len(m.OtherPotentialMentions), 1, "should've potential mentions for @potential")
 		assert.Equal(t, "potential", m.OtherPotentialMentions[0])
@@ -2409,44 +2433,46 @@ func TestGetMentionKeywords_Groups(t *testing.T) {
 	}
 }
 
-func TestGetMentionsEnabledFields(t *testing.T) {
+func TestPostAllStrings(t *testing.T) {
 	mainHelper.Parallel(t)
-	attachmentWithTextAndPreText := model.MessageAttachment{
-		Text:    "@here with mentions",
-		Pretext: "@Channel some comment for the channel",
-	}
 
-	attachmentWithOutPreText := model.MessageAttachment{
-		Text: "some text",
-		Fields: []*model.MessageAttachmentField{
-			{
-				Title: "field title",
-				Value: "field value",
+	t.Run("attachmentMentionSources", func(t *testing.T) {
+		attachmentWithTextAndPreText := model.MessageAttachment{
+			Text:    "@here with mentions",
+			Pretext: "@Channel some comment for the channel",
+		}
+
+		attachmentWithOutPreText := model.MessageAttachment{
+			Text: "some text",
+			Fields: []*model.MessageAttachmentField{
+				{
+					Title: "field title",
+					Value: "field value",
+				},
 			},
-		},
-	}
-	attachments := []*model.MessageAttachment{
-		&attachmentWithTextAndPreText,
-		&attachmentWithOutPreText,
-	}
+		}
+		attachments := []*model.MessageAttachment{
+			&attachmentWithTextAndPreText,
+			&attachmentWithOutPreText,
+		}
 
-	post := &model.Post{
-		Message: "This is the message",
-		Props: model.StringInterface{
-			model.PostPropsAttachments: attachments,
-		},
-	}
-	expectedFields := []string{
-		"This is the message",
-		"@Channel some comment for the channel",
-		"@here with mentions",
-		"some text",
-		"field value",
-	}
+		post := &model.Post{
+			Message: "This is the message",
+			Props: model.StringInterface{
+				model.PostPropsAttachments: attachments,
+			},
+		}
+		expectedFields := []string{
+			"This is the message",
+			"@here with mentions",
+			"@Channel some comment for the channel",
+			"some text",
+			"field title",
+			"field value",
+		}
 
-	mentionEnabledFields := getMentionsEnabledFields(post)
-
-	assert.EqualValues(t, expectedFields, mentionEnabledFields)
+		assert.Equal(t, expectedFields, post.AllStrings(model.AllStringsOptions{}))
+	})
 }
 
 func TestPostNotificationGetChannelName(t *testing.T) {
