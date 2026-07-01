@@ -805,7 +805,6 @@ const defaultServerConfig: AdminConfig = {
         NotificationMonitoring: true,
         ExperimentalAuditSettingsSystemConsoleUI: true,
         CustomProfileAttributes: true,
-        AttributeBasedAccessControl: true,
         AttributeValueMasking: false,
         PermissionPolicies: false,
         ChannelPermissionPolicies: false,

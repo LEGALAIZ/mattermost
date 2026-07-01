@@ -64,7 +64,7 @@ function mapStateToProps(state: GlobalState, ownProps: OwnProps) {
     // Channel Groups is only available for Enterprise and above
     const channelGroupsEnabled = isLicensed && isMinimumEnterpriseLicense(license);
 
-    const abacSupported = isLicensed && isMinimumEnterpriseAdvancedLicense(license) && config.FeatureFlagAttributeBasedAccessControl === 'true';
+    const abacSupported = isLicensed && isMinimumEnterpriseAdvancedLicense(license);
 
     const guestAccountsEnabled = config.EnableGuestAccounts === 'true';
     const channelID = ownProps.match.params.channel_id;
