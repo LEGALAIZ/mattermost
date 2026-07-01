@@ -143,11 +143,18 @@ type FeatureFlags struct {
 
 	// Enable the new mm_blocks Interactive Messages framework
 	MmBlocksEnabled bool
+
+	// ClusterGracefulDrain enables waiting for peer silence after memberlist.Leave()
+	// before closing the gossip socket during shutdown. When disabled, the node closes
+	// immediately after Leave(), which can cause a brief burst of "SendClusterMessage
+	// failed" errors on peers during rolling restarts.
+	ClusterGracefulDrain bool
 }
 
 func (f *FeatureFlags) SetDefaults() {
 	f.TestFeature = "off"
 	f.TestBoolFeature = false
+	f.ClusterGracefulDrain = true
 	f.EnableSharedChannelsDMs = false
 	f.EnableSyncAllUsersForRemoteCluster = false
 	f.AppsEnabled = false
