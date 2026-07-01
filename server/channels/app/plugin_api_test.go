@@ -3778,6 +3778,30 @@ func TestPluginAPICreateChannelManagedCategory(t *testing.T) {
 	assert.Equal(t, categoryName, mappings[createdChannel.Id])
 }
 
+func TestPluginAPIDeleteAndRestoreChannelRejectSpace(t *testing.T) {
+	mainHelper.Parallel(t)
+
+	th := Setup(t).InitBasic(t)
+	api := th.SetupPluginAPI()
+
+	space := &model.Channel{
+		TeamId:      th.BasicTeam.Id,
+		DisplayName: "Space",
+		Name:        "space-" + model.NewId(),
+		Type:        model.ChannelTypeSpace,
+	}
+	space, nErr := th.App.Srv().Store().Channel().Save(th.Context, space, -1)
+	require.NoError(t, nErr)
+
+	appErr := api.DeleteChannel(space.Id)
+	require.NotNil(t, appErr)
+	assert.Equal(t, "app.channel.delete_channel.space.app_error", appErr.Id)
+
+	appErr = api.RestoreChannel(space.Id)
+	require.NotNil(t, appErr)
+	assert.Equal(t, "app.channel.restore_channel.space.app_error", appErr.Id)
+}
+
 func TestPluginAPICreateChannelAnonymousURLs(t *testing.T) {
 	mainHelper.Parallel(t)
 

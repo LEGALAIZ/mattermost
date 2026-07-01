@@ -482,6 +482,15 @@ func (api *PluginAPI) DeleteChannel(channelID string) *model.AppError {
 	return api.app.DeleteChannel(api.ctx, channel, "")
 }
 
+func (api *PluginAPI) RestoreChannel(channelID string) *model.AppError {
+	channel, err := api.app.GetChannel(api.ctx, channelID)
+	if err != nil {
+		return err
+	}
+	_, err = api.app.RestoreChannel(api.ctx, channel, "")
+	return err
+}
+
 func (api *PluginAPI) GetPublicChannelsForTeam(teamID string, page, perPage int) ([]*model.Channel, *model.AppError) {
 	channels, err := api.app.GetPublicChannelsForTeam(api.ctx, teamID, page*perPage, perPage)
 	if err != nil {

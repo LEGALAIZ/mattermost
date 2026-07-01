@@ -165,6 +165,10 @@ func (a *App) CreateChannelWithUser(rctx request.CTX, channel *model.Channel, us
 		return nil, model.NewAppError("CreateChannelWithUser", "app.channel.create_channel.board_type.app_error", nil, "use CreateBoardChannel instead", http.StatusBadRequest)
 	}
 
+	if channel.IsSpace() && !a.Config().FeatureFlags.EnableDocs {
+		return nil, model.NewAppError("CreateChannelWithUser", "app.channel.create_channel.docs_not_enabled.app_error", nil, "", http.StatusForbidden)
+	}
+
 	if channel.TeamId == "" {
 		return nil, model.NewAppError("CreateChannelWithUser", "app.channel.create_channel.no_team_id.app_error", nil, "", http.StatusBadRequest)
 	}
@@ -175,7 +179,7 @@ func (a *App) CreateChannelWithUser(rctx request.CTX, channel *model.Channel, us
 		return nil, err
 	}
 
-	if int64(count+1) > *a.Config().TeamSettings.MaxChannelsPerTeam {
+	if !channel.IsSpace() && int64(count+1) > *a.Config().TeamSettings.MaxChannelsPerTeam {
 		return nil, model.NewAppError("CreateChannelWithUser", "api.channel.create_channel.max_channel_limit.app_error", map[string]any{"MaxChannelsPerTeam": *a.Config().TeamSettings.MaxChannelsPerTeam}, "", http.StatusBadRequest)
 	}
 
@@ -235,6 +239,10 @@ func (a *App) RenameChannel(rctx request.CTX, channel *model.Channel, newChannel
 func (a *App) CreateChannel(rctx request.CTX, channel *model.Channel, addMember bool) (*model.Channel, *model.AppError) {
 	if channel.IsBoard() {
 		return nil, model.NewAppError("CreateChannel", "app.channel.create_channel.board_type.app_error", nil, "use CreateBoardChannel instead", http.StatusBadRequest)
+	}
+
+	if channel.IsSpace() && !a.Config().FeatureFlags.EnableDocs {
+		return nil, model.NewAppError("CreateChannel", "app.channel.create_channel.docs_not_enabled.app_error", nil, "", http.StatusForbidden)
 	}
 
 	channel.DisplayName = strings.TrimSpace(channel.DisplayName)
@@ -849,6 +857,10 @@ func (a *App) UpdateChannelScheme(rctx request.CTX, channel *model.Channel) (*mo
 }
 
 func (a *App) UpdateChannelPrivacy(rctx request.CTX, oldChannel *model.Channel, user *model.User) (*model.Channel, *model.AppError) {
+	if oldChannel.IsSpace() {
+		return nil, model.NewAppError("UpdateChannelPrivacy", "app.channel.update_channel_privacy.space.app_error", nil, "", http.StatusBadRequest)
+	}
+
 	wasDiscoverable := oldChannel.Discoverable
 	// Public channels are inherently joinable; the discoverable flag only
 	// has meaning for private channels. Clear it eagerly so callers reading
@@ -942,6 +954,10 @@ func (a *App) postChannelPrivacyMessage(rctx request.CTX, user *model.User, chan
 }
 
 func (a *App) RestoreChannel(rctx request.CTX, channel *model.Channel, userID string) (*model.Channel, *model.AppError) {
+	if channel.IsSpace() {
+		return nil, model.NewAppError("RestoreChannel", "app.channel.restore_channel.space.app_error", nil, "", http.StatusBadRequest)
+	}
+
 	if channel.DeleteAt == 0 {
 		return nil, model.NewAppError("restoreChannel", "api.channel.restore_channel.restored.app_error", nil, "", http.StatusBadRequest)
 	}
@@ -1643,6 +1659,10 @@ func (a *App) updateChannelMember(rctx request.CTX, member *model.ChannelMember)
 }
 
 func (a *App) DeleteChannel(rctx request.CTX, channel *model.Channel, userID string) *model.AppError {
+	if channel.IsSpace() {
+		return model.NewAppError("DeleteChannel", "app.channel.delete_channel.space.app_error", nil, "", http.StatusBadRequest)
+	}
+
 	ihc := make(chan store.StoreResult[[]*model.IncomingWebhook], 1)
 	ohc := make(chan store.StoreResult[[]*model.OutgoingWebhook], 1)
 
@@ -1939,6 +1959,10 @@ type ChannelMemberOpts struct {
 
 // AddChannelMember adds a user to a channel. It is a wrapper over AddUserToChannel.
 func (a *App) AddChannelMember(rctx request.CTX, userID string, channel *model.Channel, opts ChannelMemberOpts) (*model.ChannelMember, *model.AppError) {
+	if channel.IsSpace() {
+		return nil, model.NewAppError("AddChannelMember", "app.channel.add_member.space.app_error", nil, "", http.StatusBadRequest)
+	}
+
 	if member, err := a.Srv().Store().Channel().GetMember(rctx, channel.Id, userID); err != nil {
 		var nfErr *store.ErrNotFound
 		if !errors.As(err, &nfErr) {
@@ -3656,6 +3680,10 @@ func (a *App) ViewChannel(rctx request.CTX, view *model.ChannelView, userID stri
 }
 
 func (a *App) PermanentDeleteChannel(rctx request.CTX, channel *model.Channel) *model.AppError {
+	if channel.IsSpace() {
+		return model.NewAppError("PermanentDeleteChannel", "app.channel.delete_channel.space.app_error", nil, "", http.StatusBadRequest)
+	}
+
 	if err := a.Srv().Store().Post().PermanentDeleteByChannel(rctx, channel.Id); err != nil {
 		return model.NewAppError("PermanentDeleteChannel", "app.post.permanent_delete_by_channel.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
 	}
@@ -3715,6 +3743,10 @@ func (a *App) RemoveAllDeactivatedMembersFromChannel(rctx request.CTX, channel *
 // MoveChannel method is prone to data races if someone joins to channel during the move process. However this
 // function is only exposed to sysadmins and the possibility of this edge case is relatively small.
 func (a *App) MoveChannel(rctx request.CTX, team *model.Team, channel *model.Channel, user *model.User) *model.AppError {
+	if channel.IsSpace() {
+		return model.NewAppError("MoveChannel", "app.channel.move_channel.space.app_error", nil, "", http.StatusForbidden)
+	}
+
 	// Check that all channel members are in the destination team.
 	channelMembers, err := a.GetChannelMembersPage(rctx, channel.Id, 0, 10000000)
 	if err != nil {

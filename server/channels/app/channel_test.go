@@ -505,6 +505,67 @@ func TestCreateChannelDisplayNameTrimsWhitespace(t *testing.T) {
 	require.Equal(t, channel.DisplayName, "Public 1")
 }
 
+func TestCreateChannelSpaceRequiresEnableDocs(t *testing.T) {
+	mainHelper.Parallel(t)
+
+	newSpace := func(teamID string) *model.Channel {
+		return &model.Channel{
+			DisplayName: "Space",
+			Name:        "space-" + model.NewId(),
+			Type:        model.ChannelTypeSpace,
+			TeamId:      teamID,
+		}
+	}
+
+	t.Run("CreateChannel rejects a space channel when EnableDocs is off", func(t *testing.T) {
+		th := SetupConfig(t, func(cfg *model.Config) {
+			cfg.FeatureFlags.EnableDocs = false
+		}).InitBasic(t)
+
+		_, appErr := th.App.CreateChannel(th.Context, newSpace(th.BasicTeam.Id), false)
+		require.NotNil(t, appErr)
+		assert.Equal(t, "app.channel.create_channel.docs_not_enabled.app_error", appErr.Id)
+		assert.Equal(t, http.StatusForbidden, appErr.StatusCode)
+	})
+
+	t.Run("CreateChannel allows a space channel when EnableDocs is on", func(t *testing.T) {
+		th := SetupConfig(t, func(cfg *model.Config) {
+			cfg.FeatureFlags.EnableDocs = true
+		}).InitBasic(t)
+
+		channel, appErr := th.App.CreateChannel(th.Context, newSpace(th.BasicTeam.Id), false)
+		require.Nil(t, appErr)
+		defer func() {
+			require.Nil(t, th.App.PermanentDeleteChannel(th.Context, channel))
+		}()
+		assert.Equal(t, model.ChannelTypeSpace, channel.Type)
+	})
+
+	t.Run("CreateChannelWithUser rejects a space channel when EnableDocs is off", func(t *testing.T) {
+		th := SetupConfig(t, func(cfg *model.Config) {
+			cfg.FeatureFlags.EnableDocs = false
+		}).InitBasic(t)
+
+		_, appErr := th.App.CreateChannelWithUser(th.Context, newSpace(th.BasicTeam.Id), th.BasicUser.Id)
+		require.NotNil(t, appErr)
+		assert.Equal(t, "app.channel.create_channel.docs_not_enabled.app_error", appErr.Id)
+		assert.Equal(t, http.StatusForbidden, appErr.StatusCode)
+	})
+
+	t.Run("CreateChannelWithUser allows a space channel when EnableDocs is on", func(t *testing.T) {
+		th := SetupConfig(t, func(cfg *model.Config) {
+			cfg.FeatureFlags.EnableDocs = true
+		}).InitBasic(t)
+
+		channel, appErr := th.App.CreateChannelWithUser(th.Context, newSpace(th.BasicTeam.Id), th.BasicUser.Id)
+		require.Nil(t, appErr)
+		defer func() {
+			require.Nil(t, th.App.PermanentDeleteChannel(th.Context, channel))
+		}()
+		assert.Equal(t, model.ChannelTypeSpace, channel.Type)
+	})
+}
+
 func TestUpdateChannelPrivacy(t *testing.T) {
 	mainHelper.Parallel(t)
 	th := Setup(t).InitBasic(t)
@@ -516,6 +577,24 @@ func TestUpdateChannelPrivacy(t *testing.T) {
 	require.Nil(t, appErr, "Failed to update channel privacy.")
 	assert.Equal(t, publicChannel.Id, privateChannel.Id)
 	assert.Equal(t, publicChannel.Type, model.ChannelTypeOpen)
+}
+
+func TestUpdateChannelPrivacyRejectsSpace(t *testing.T) {
+	mainHelper.Parallel(t)
+	th := Setup(t).InitBasic(t)
+
+	space, err := th.GetSqlStore().Channel().Save(th.Context, &model.Channel{
+		TeamId:      th.BasicTeam.Id,
+		DisplayName: "Space",
+		Name:        "space-" + model.NewId(),
+		Type:        model.ChannelTypeSpace,
+	}, -1)
+	require.NoError(t, err)
+
+	_, appErr := th.App.UpdateChannelPrivacy(th.Context, space, th.BasicUser)
+	require.NotNil(t, appErr)
+	assert.Equal(t, "app.channel.update_channel_privacy.space.app_error", appErr.Id)
+	assert.Equal(t, http.StatusBadRequest, appErr.StatusCode)
 }
 
 func TestUpdateChannelPrivacyWebSocketEvent(t *testing.T) {
