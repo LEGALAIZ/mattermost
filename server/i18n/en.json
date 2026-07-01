@@ -688,6 +688,10 @@
     "translation": "Cannot set members on this channel type."
   },
   {
+    "id": "api.channel.space_channel.app_error",
+    "translation": "Space channels cannot be accessed via /channels endpoints. Use the spaces API instead."
+  },
+  {
     "id": "api.channel.update_channel.banner_info.channel_type.not_allowed",
     "translation": "Channel banner can only be configured on Public and Private channels."
   },
@@ -752,12 +756,20 @@
     "translation": "The default channel cannot be made private."
   },
   {
+    "id": "api.channel.update_channel_privacy.type.invalid",
+    "translation": "Only public and private channels can have their privacy changed."
+  },
+  {
     "id": "api.channel.update_channel_scheme.license.error",
     "translation": "Your license does not support updating a channel's scheme"
   },
   {
     "id": "api.channel.update_channel_scheme.scheme_scope.error",
     "translation": "Unable to set the scheme to the channel because the supplied scheme is not a channel scheme."
+  },
+  {
+    "id": "api.channel.update_channel_scheme.space.app_error",
+    "translation": "Spaces cannot have their scheme changed through this endpoint."
   },
   {
     "id": "api.channel.update_team_member_roles.changing_guest_role.app_error",
@@ -5511,6 +5523,10 @@
     "translation": "Unable to add the user as a member of the channel."
   },
   {
+    "id": "app.channel.add_member.space.app_error",
+    "translation": "Spaces cannot have members added through this endpoint."
+  },
+  {
     "id": "app.channel.add_user.to.channel.rejected_by_plugin",
     "translation": "Adding channel member rejected by plugin: {{.Reason}}"
   },
@@ -5587,6 +5603,10 @@
     "translation": "Board channels cannot be created via CreateChannel. Use the /boards API instead."
   },
   {
+    "id": "app.channel.create_channel.docs_not_enabled.app_error",
+    "translation": "The Docs feature is not enabled."
+  },
+  {
     "id": "app.channel.create_channel.internal_error",
     "translation": "Unable to save channel."
   },
@@ -5609,6 +5629,10 @@
   {
     "id": "app.channel.delete_channel.rejected_by_plugin",
     "translation": "Channel archive rejected by plugin: {{.Reason}}"
+  },
+  {
+    "id": "app.channel.delete_channel.space.app_error",
+    "translation": "Spaces cannot be deleted through this endpoint."
   },
   {
     "id": "app.channel.get.app_error",
@@ -5803,6 +5827,10 @@
     "translation": "Unable to move a channel unless all its members are already members of the destination team."
   },
   {
+    "id": "app.channel.move_channel.space.app_error",
+    "translation": "Spaces cannot be moved through this endpoint."
+  },
+  {
     "id": "app.channel.patch_channel_members_notify_props.app_error",
     "translation": "Unable to update channel members' notify props."
   },
@@ -5863,6 +5891,10 @@
     "translation": "Channel restore rejected by plugin: {{.Reason}}"
   },
   {
+    "id": "app.channel.restore_channel.space.app_error",
+    "translation": "Spaces cannot be restored through this endpoint."
+  },
+  {
     "id": "app.channel.save_member.app_error",
     "translation": "Unable to save channel member."
   },
@@ -5913,6 +5945,10 @@
   {
     "id": "app.channel.update_channel.rejected_by_plugin",
     "translation": "Channel update rejected by plugin: {{.Reason}}"
+  },
+  {
+    "id": "app.channel.update_channel_privacy.space.app_error",
+    "translation": "Spaces cannot have their privacy changed through this endpoint."
   },
   {
     "id": "app.channel.update_last_viewed_at.app_error",
