@@ -28,18 +28,17 @@
 }
 
 .value-selector-menu-button {
+    // Keep chips on a single line so the table row height stays constant
+    // regardless of how many values are added. Overflowing chips scroll
+    // horizontally within the cell instead of wrapping onto new lines.
     &__multi-values-container {
         display: flex;
-
-        // Keep chips on a single line so the table row height stays constant
-        // regardless of how many values are added. Overflowing chips scroll
-        // horizontally within the cell instead of wrapping onto new lines.
-        overflow-x: auto;
-        overflow-y: hidden;
+        min-width: 0;
         flex-grow: 1;
         flex-wrap: nowrap;
-        min-width: 0;
         gap: 2px;
+        overflow-x: auto;
+        overflow-y: hidden;
 
         &::-webkit-scrollbar {
             height: 4px;
