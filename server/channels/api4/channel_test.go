@@ -8007,6 +8007,9 @@ func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 		th.App.Srv().SetLicense(model.NewTestLicense(""))
 		defer th.App.Srv().SetLicense(originalLicense)
 
+		err := th.App.SetPhase2PermissionsMigrationStatus(true)
+		require.NoError(t, err)
+
 		channelScheme, _, err := th.SystemAdminClient.CreateScheme(ctx, &model.Scheme{
 			DisplayName: "DisplayName",
 			Name:        model.NewId(),
