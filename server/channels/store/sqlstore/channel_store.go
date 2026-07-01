@@ -43,6 +43,23 @@ var messageChannelTypes = []model.ChannelType{
 	model.ChannelTypeGroup,
 }
 
+// channelByIdTypes is messageChannelTypes plus the space (S) backing-channel type.
+// Single-channel by-id lookups (Get/GetMany) must resolve S channels so a page
+// comment's backing channel can be loaded. S channels stay excluded from
+// list/search/sidebar/autocomplete queries (which keep using messageChannelTypes)
+// and from analytics/export/membership-listing queries (which use
+// nonMessageBackingChannelTypes below).
+var channelByIdTypes = append(slices.Clone(messageChannelTypes), model.ChannelTypeSpace)
+
+// nonMessageBackingChannelTypes is the deny-list applied to queries that don't
+// already filter through the messageChannelTypes allow-list (e.g. because they
+// also need to include board channels' membership rows). Adding a new
+// non-message backing channel type here excludes it from every query that
+// references this var, instead of requiring each query to be re-audited.
+var nonMessageBackingChannelTypes = []model.ChannelType{
+	model.ChannelTypeSpace,
+}
+
 // teamMessageChannelTypes is messageChannelTypes minus direct channels, used
 // for team-scoped queries where direct channels don't belong.
 var teamMessageChannelTypes = []model.ChannelType{
@@ -774,7 +791,11 @@ func (s SqlChannelStore) saveChannelT(transaction *sqlxTxWrapper, channel *model
 		return nil, err // we just pass through the error as-is for now.
 	}
 
-	if channel.Type != model.ChannelTypeDirect && channel.Type != model.ChannelTypeGroup && maxChannelsPerTeam >= 0 {
+	// Space channels are exempted from the per-team channel limit, like Direct/Group.
+	// Board channels are NOT exempted here (pre-existing behavior): board creation is
+	// still blocked once a team is at its Open/Private channel cap, even though the
+	// count query below never counts board rows toward that cap.
+	if channel.Type != model.ChannelTypeDirect && channel.Type != model.ChannelTypeGroup && channel.Type != model.ChannelTypeSpace && maxChannelsPerTeam >= 0 {
 		var count int64
 		if err := transaction.Get(&count, "SELECT COUNT(0) FROM Channels WHERE TeamId = ? AND DeleteAt = 0 AND (Type = ? OR Type = ?)", channel.TeamId, model.ChannelTypeOpen, model.ChannelTypePrivate); err != nil {
 			return nil, errors.Wrapf(err, "save_channel_count: teamId=%s", channel.TeamId)
@@ -963,7 +984,7 @@ func (s SqlChannelStore) Get(id string, allowFromCache bool) (*model.Channel, er
 	ch := model.Channel{}
 	query := s.tableSelectQuery.Where(sq.And{
 		sq.Eq{"Id": id},
-		sq.Eq{"Type": messageChannelTypes},
+		sq.Eq{"Type": channelByIdTypes},
 	})
 
 	err := s.GetReplica().GetBuilder(&ch, query)
@@ -1002,7 +1023,7 @@ func (s SqlChannelStore) GetMany(ids []string, allowFromCache bool) (model.Chann
 		From("Channels").
 		Where(sq.And{
 			sq.Eq{"Id": ids},
-			sq.Eq{"Type": messageChannelTypes},
+			sq.Eq{"Type": channelByIdTypes},
 		})
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -2158,7 +2179,9 @@ func (s SqlChannelStore) GetChannelsWithUnreadsAndWithMentions(_ request.CTX, ch
 		Where(sq.Eq{
 			"ChannelMembers.ChannelId": channelIDs,
 			"ChannelMembers.UserId":    userID,
-		})
+		}).
+		// Space backing channels are internal and carry no chat read-state.
+		Where(sq.NotEq{"Channels.Type": nonMessageBackingChannelTypes})
 
 	queryString, args, err := query.ToSql()
 	if err != nil {
@@ -2231,7 +2254,9 @@ func (s SqlChannelStore) GetTeamChannelsWithUnreadAndMentions(rctx request.CTX, 
 		Where(sq.Eq{
 			"Channels.TeamId":       teamID,
 			"ChannelMembers.UserId": userID,
-		})
+		}).
+		// Space backing channels are internal and carry no chat read-state.
+		Where(sq.NotEq{"Channels.Type": nonMessageBackingChannelTypes})
 
 	var channels []struct {
 		Id            string
@@ -2450,6 +2475,10 @@ func (s SqlChannelStore) GetAllChannelMembersForUser(rctx request.CTX, userId st
 		LeftJoin("Schemes ChannelScheme ON Channels.SchemeId = ChannelScheme.Id").
 		LeftJoin("Teams ON Channels.TeamId = Teams.Id").
 		LeftJoin("Schemes TeamScheme ON Teams.SchemeId = TeamScheme.Id").
+		// No channel-type filter: this is the per-user membership map that backs
+		// channel authorization (SessionHasPermissionToChannel/HasPermissionToChannel)
+		// and WebSocket broadcast scoping, so S backing channels must resolve here for
+		// their members to be authorized — matching how board channels are handled.
 		Where(sq.Eq{"ChannelMembers.UserId": userId})
 	if !includeDeleted {
 		query = query.Where(sq.Eq{"Channels.DeleteAt": 0})
@@ -3144,6 +3173,7 @@ func (s SqlChannelStore) AnalyticsCountAll(teamId string) (map[model.ChannelType
 	if teamId != "" {
 		query = query.Where(sq.Eq{"TeamId": teamId})
 	}
+	query = query.Where(sq.NotEq{"Type": nonMessageBackingChannelTypes})
 
 	sqlStr, args, err := query.ToSql()
 	if err != nil {
@@ -3175,6 +3205,7 @@ func (s SqlChannelStore) GetMembersForUser(teamID string, userID string) (model.
 				sq.Eq{"Teams.Id": ""},
 				sq.Eq{"Teams.Id": nil},
 			},
+			sq.NotEq{"Channels.Type": nonMessageBackingChannelTypes},
 		}).ToSql()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetMembersForUser_ToSql teamID=%s userID=%s", teamID, userID)
@@ -3192,7 +3223,7 @@ func (s SqlChannelStore) GetMembersForUser(teamID string, userID string) (model.
 func (s SqlChannelStore) GetMembersForUserWithPagination(userId string, page, perPage int) (model.ChannelMembersWithTeamData, error) {
 	dbMembers := channelMemberWithTeamWithSchemeRolesList{}
 	offset := page * perPage
-	err := s.GetReplica().Select(&dbMembers, channelMembersWithSchemeSelectQuery+"WHERE ChannelMembers.UserId = ? ORDER BY ChannelId ASC Limit ? Offset ?", userId, perPage, offset)
+	err := s.GetReplica().Select(&dbMembers, channelMembersWithSchemeSelectQuery+"WHERE ChannelMembers.UserId = ? AND Channels.Type != ? ORDER BY ChannelId ASC Limit ? Offset ?", userId, string(model.ChannelTypeSpace), perPage, offset)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find ChannelMembers data with and userId=%s", userId)
 	}
@@ -3202,7 +3233,7 @@ func (s SqlChannelStore) GetMembersForUserWithPagination(userId string, page, pe
 
 func (s SqlChannelStore) GetMembersForUserWithCursorPagination(userId string, perPage int, fromChannelID string) (model.ChannelMembersWithTeamData, error) {
 	dbMembers := channelMemberWithTeamWithSchemeRolesList{}
-	err := s.GetReplica().Select(&dbMembers, channelMembersWithSchemeSelectQuery+"WHERE ChannelMembers.UserId = ? AND ChannelId > ? ORDER BY ChannelId ASC Limit ?", userId, fromChannelID, perPage)
+	err := s.GetReplica().Select(&dbMembers, channelMembersWithSchemeSelectQuery+"WHERE ChannelMembers.UserId = ? AND ChannelId > ? AND Channels.Type != ? ORDER BY ChannelId ASC Limit ?", userId, fromChannelID, string(model.ChannelTypeSpace), perPage)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find ChannelMembers data with and userId=%s", userId)
 	}
@@ -3971,7 +4002,7 @@ func (s SqlChannelStore) GetMembersInfoByChannelIds(channelIDs []string) (map[st
 
 func (s SqlChannelStore) GetChannelsByScheme(schemeId string, offset int, limit int) (model.ChannelList, error) {
 	channels := model.ChannelList{}
-	query := s.tableSelectQuery.Where(sq.Eq{"SchemeId": schemeId}).OrderBy("DisplayName").Limit(uint64(limit)).Offset(uint64(offset))
+	query := s.tableSelectQuery.Where(sq.Eq{"SchemeId": schemeId}).Where(sq.NotEq{"Type": nonMessageBackingChannelTypes}).OrderBy("DisplayName").Limit(uint64(limit)).Offset(uint64(offset))
 
 	if err := s.GetReplica().SelectBuilder(&channels, query); err != nil {
 		return nil, errors.Wrapf(err, "failed to find Channels with schemeId=%s", schemeId)
@@ -4247,7 +4278,8 @@ func (s SqlChannelStore) GetChannelMembersForExport(userId string, teamId string
 	if !includeArchivedChannel {
 		q += " AND Channels.DeleteAt = 0"
 	}
-	err := s.GetReplica().Select(&members, q, userId, teamId)
+	q += " AND Channels.Type != ?"
+	err := s.GetReplica().Select(&members, q, userId, teamId, string(model.ChannelTypeSpace))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find Channels for export")
 	}
