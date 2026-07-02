@@ -306,8 +306,25 @@ export class SchemaAdminSettings extends React.PureComponent<SchemaAdminSettings
             return '';
         }
 
+        let name: string | MessageDescriptor = this.props.schema.id;
+        if (('name' in this.props.schema)) {
+            name = this.props.schema.name;
+        }
+
         if (this.props.plugin) {
-            return null;
+            const title = typeof name === 'string' ? (
+                name
+            ) : (
+                <FormattedMessage
+                    {...name}
+                />
+            );
+
+            return (
+                <h1 className='sr-only'>
+                    {title}
+                </h1>
+            );
         }
 
         const betaBadge = this.props.schema.isBeta && (
@@ -317,11 +334,6 @@ export class SchemaAdminSettings extends React.PureComponent<SchemaAdminSettings
                 className='admin-header-beta-badge'
             />
         );
-
-        let name: string | MessageDescriptor = this.props.schema.id;
-        if (('name' in this.props.schema)) {
-            name = this.props.schema.name;
-        }
 
         if (typeof name === 'string') {
             return (

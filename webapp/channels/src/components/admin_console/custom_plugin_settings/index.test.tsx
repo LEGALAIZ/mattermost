@@ -86,6 +86,7 @@ describe('custom plugin sections and settings', () => {
         const panel = screen.getByTestId('plugin-metadata-panel');
         expect(panel).toHaveTextContent(`${pluginName} (${pluginId}`);
         expect(document.querySelector('.PluginMetadataPanel__settingsWrapper')).toContainElement(panel);
+        expect(screen.getByRole('heading', {level: 1, hidden: true})).toHaveTextContent(pluginName);
     };
 
     it('empty sections and settings', () => {
