@@ -13,15 +13,16 @@
         vertical-align: baseline;
     }
 
-    &__id {
-        padding: 1px 4px;
-        border-radius: 3px;
-        font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
-        font-size: 0.9em;
-    }
-
-    &__copy {
+    &__copy.post-code__clipboard {
         position: relative;
         top: 1px;
+        width: 18px;
+        height: 18px;
+
+        > i {
+            margin-top: 0;
+            margin-left: 0;
+            font-size: 14px;
+        }
     }
 }

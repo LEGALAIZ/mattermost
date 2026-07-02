@@ -79,12 +79,12 @@ const PluginMetadataPanel = ({
             {nameElement}
             {' ('}
             <span className='PluginMetadataPanel__idWrapper'>
-                <code
+                <span
                     className='PluginMetadataPanel__id'
                     data-testid='plugin-metadata-id'
                 >
                     {id}
-                </code>
+                </span>
                 <CopyButton
                     content={id}
                     isForText={true}
