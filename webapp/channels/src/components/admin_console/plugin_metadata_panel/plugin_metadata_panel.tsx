@@ -3,19 +3,11 @@
 
 import classNames from 'classnames';
 import React from 'react';
-import {defineMessages, FormattedMessage} from 'react-intl';
 
 import CopyButton from 'components/copy_button';
 import ExternalLink from 'components/external_link';
 
 import './plugin_metadata_panel.scss';
-
-const messages = defineMessages({
-    releaseNotes: {
-        id: 'admin.plugin.metadata.releaseNotes',
-        defaultMessage: 'release notes',
-    },
-});
 
 export function formatPluginVersion(version: string): string {
     if (!version) {
@@ -42,17 +34,40 @@ const PluginMetadataPanel = ({
     releaseNotesUrl,
     className,
 }: PluginMetadataPanelProps) => {
+    const displayName = name.trim() || id;
     const formattedVersion = formatPluginVersion(version);
 
-    let nameElement: React.ReactNode = <strong>{name}</strong>;
+    let nameElement: React.ReactNode = <strong>{displayName}</strong>;
     if (homepageUrl) {
         nameElement = (
             <ExternalLink
                 href={homepageUrl}
                 location='plugin_metadata_panel'
             >
-                <strong>{name}</strong>
+                <strong>{displayName}</strong>
             </ExternalLink>
+        );
+    }
+
+    let versionElement: React.ReactNode = null;
+    if (formattedVersion) {
+        versionElement = (
+            <>
+                {' - '}
+                {releaseNotesUrl ? (
+                    <ExternalLink
+                        href={releaseNotesUrl}
+                        location='plugin_metadata_panel'
+                        data-testid='plugin-metadata-version'
+                    >
+                        {formattedVersion}
+                    </ExternalLink>
+                ) : (
+                    <span data-testid='plugin-metadata-version'>
+                        {formattedVersion}
+                    </span>
+                )}
+            </>
         );
     }
 
@@ -76,19 +91,7 @@ const PluginMetadataPanel = ({
                     className='PluginMetadataPanel__copy'
                 />
             </span>
-            {' - '}
-            <span data-testid='plugin-metadata-version'>{formattedVersion}</span>
-            {releaseNotesUrl && (
-                <>
-                    {' - '}
-                    <ExternalLink
-                        href={releaseNotesUrl}
-                        location='plugin_metadata_panel'
-                    >
-                        <FormattedMessage {...messages.releaseNotes}/>
-                    </ExternalLink>
-                </>
-            )}
+            {versionElement}
             {')'}
         </span>
     );

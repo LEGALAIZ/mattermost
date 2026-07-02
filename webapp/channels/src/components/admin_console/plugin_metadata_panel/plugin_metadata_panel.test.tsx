@@ -36,7 +36,33 @@ describe('PluginMetadataPanel', () => {
         expect(screen.getByRole('button', {name: 'Copy text'})).toBeInTheDocument();
     });
 
-    test('should link display name to website and release notes when provided', () => {
+    test('should fall back to plugin id when display name is missing', () => {
+        renderWithContext(
+            <PluginMetadataPanel
+                name='   '
+                id='com.mattermost.fl3xx'
+                version='0.7.4'
+            />,
+        );
+
+        expect(screen.getByTestId('plugin-metadata-panel')).toHaveTextContent('com.mattermost.fl3xx (com.mattermost.fl3xx - v0.7.4)');
+        expect(screen.getByText('com.mattermost.fl3xx', {selector: 'strong'})).toBeInTheDocument();
+    });
+
+    test('should omit version segment when version is missing', () => {
+        renderWithContext(
+            <PluginMetadataPanel
+                name='FL3XX'
+                id='com.mattermost.fl3xx'
+                version=''
+            />,
+        );
+
+        expect(screen.getByTestId('plugin-metadata-panel')).toHaveTextContent('FL3XX (com.mattermost.fl3xx)');
+        expect(screen.queryByTestId('plugin-metadata-version')).not.toBeInTheDocument();
+    });
+
+    test('should link display name to website and version to release notes when provided', () => {
         renderWithContext(
             <PluginMetadataPanel
                 name='Agents Plugin'
@@ -48,8 +74,8 @@ describe('PluginMetadataPanel', () => {
         );
 
         expect(screen.getByRole('link', {name: 'Agents Plugin'})).toHaveAttribute('href', 'https://github.com/mattermost/mattermost-plugin-ai');
-        expect(screen.getByText('release notes')).toHaveAttribute('href', 'https://github.com/mattermost/mattermost-plugin-ai/releases/tag/v1.2.3');
-        expect(screen.queryByText('website')).not.toBeInTheDocument();
+        expect(screen.getByRole('link', {name: 'v1.2.3'})).toHaveAttribute('href', 'https://github.com/mattermost/mattermost-plugin-ai/releases/tag/v1.2.3');
+        expect(screen.queryByText('release notes')).not.toBeInTheDocument();
     });
 
     test('should not render links when urls are not provided', () => {
