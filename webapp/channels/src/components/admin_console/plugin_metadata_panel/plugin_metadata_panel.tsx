@@ -77,22 +77,24 @@ const PluginMetadataPanel = ({
             data-testid='plugin-metadata-panel'
         >
             {nameElement}
-            {' ('}
-            <span className='PluginMetadataPanel__idWrapper'>
-                <span
-                    className='PluginMetadataPanel__id'
-                    data-testid='plugin-metadata-id'
-                >
-                    {id}
+            <span className='PluginMetadataPanel__metadata'>
+                {' ('}
+                <span className='PluginMetadataPanel__idWrapper'>
+                    <span
+                        className='PluginMetadataPanel__id'
+                        data-testid='plugin-metadata-id'
+                    >
+                        {id}
+                    </span>
+                    <CopyButton
+                        content={id}
+                        isForText={true}
+                        className='PluginMetadataPanel__copy'
+                    />
                 </span>
-                <CopyButton
-                    content={id}
-                    isForText={true}
-                    className='PluginMetadataPanel__copy'
-                />
+                {versionElement}
+                {')'}
             </span>
-            {versionElement}
-            {')'}
         </span>
     );
 };

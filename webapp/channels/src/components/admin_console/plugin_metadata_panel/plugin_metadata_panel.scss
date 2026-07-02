@@ -6,11 +6,24 @@
         margin-bottom: 16px;
     }
 
+    &__metadata {
+        color: rgba(var(--center-channel-color-rgb), 0.64);
+        font-size: 0.9em;
+
+        a {
+            color: var(--link-color);
+        }
+    }
+
     &__idWrapper {
         display: inline-flex;
         align-items: center;
         gap: 2px;
         vertical-align: baseline;
+    }
+
+    &__id {
+        font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
     }
 
     &__copy.post-code__clipboard {
