@@ -83,6 +83,7 @@ export type SchemaAdminSettingsProps = {
     isCurrentUserSystemAdmin: boolean;
     enterpriseReady: boolean;
     plugin?: PluginRedux;
+    pluginVersion?: string;
 } & WrappedComponentProps;
 
 type State = {
@@ -305,6 +306,10 @@ export class SchemaAdminSettings extends React.PureComponent<SchemaAdminSettings
             return '';
         }
 
+        if (this.props.plugin) {
+            return null;
+        }
+
         const betaBadge = this.props.schema.isBeta && (
             <BetaTag
                 variant='default'
@@ -312,21 +317,6 @@ export class SchemaAdminSettings extends React.PureComponent<SchemaAdminSettings
                 className='admin-header-beta-badge'
             />
         );
-
-        if (this.props.plugin) {
-            return (
-                <AdminHeader>
-                    <PluginMetadataPanel
-                        name={this.props.plugin.name}
-                        id={this.props.plugin.id}
-                        version={this.props.plugin.version}
-                        homepageUrl={this.props.plugin.homepage_url}
-                        releaseNotesUrl={this.props.plugin.release_notes_url}
-                    />
-                    {betaBadge}
-                </AdminHeader>
-            );
-        }
 
         let name: string | MessageDescriptor = this.props.schema.id;
         if (('name' in this.props.schema)) {
@@ -349,6 +339,24 @@ export class SchemaAdminSettings extends React.PureComponent<SchemaAdminSettings
                 />
                 {betaBadge}
             </AdminHeader>
+        );
+    };
+
+    renderPluginMetadata = () => {
+        if (!this.props.plugin) {
+            return null;
+        }
+
+        return (
+            <div className='PluginMetadataPanel__settingsWrapper'>
+                <PluginMetadataPanel
+                    name={this.props.plugin.name}
+                    id={this.props.plugin.id}
+                    version={this.props.pluginVersion || this.props.plugin.version}
+                    homepageUrl={this.props.plugin.homepage_url}
+                    releaseNotesUrl={this.props.plugin.release_notes_url}
+                />
+            </div>
         );
     };
 
@@ -1366,6 +1374,7 @@ export class SchemaAdminSettings extends React.PureComponent<SchemaAdminSettings
                 {this.renderTitle()}
                 <div className='admin-console__wrapper'>
                     <div className='admin-console__content'>
+                        {this.renderPluginMetadata()}
                         <form
                             className='form-horizontal'
                             role='form'

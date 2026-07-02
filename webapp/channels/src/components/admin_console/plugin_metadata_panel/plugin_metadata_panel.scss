@@ -2,6 +2,10 @@
     font-size: inherit;
     line-height: inherit;
 
+    &__settingsWrapper {
+        margin-bottom: 16px;
+    }
+
     &__idWrapper {
         display: inline-flex;
         align-items: center;
