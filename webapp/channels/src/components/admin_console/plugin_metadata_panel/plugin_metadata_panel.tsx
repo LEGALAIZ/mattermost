@@ -5,20 +5,25 @@ import classNames from 'classnames';
 import React from 'react';
 import {defineMessages, FormattedMessage} from 'react-intl';
 
+import CopyButton from 'components/copy_button';
 import ExternalLink from 'components/external_link';
 
 import './plugin_metadata_panel.scss';
 
 const messages = defineMessages({
-    website: {
-        id: 'admin.plugin.metadata.website',
-        defaultMessage: 'website',
-    },
     releaseNotes: {
         id: 'admin.plugin.metadata.releaseNotes',
         defaultMessage: 'release notes',
     },
 });
+
+export function formatPluginVersion(version: string): string {
+    if (!version) {
+        return version;
+    }
+
+    return /^v/i.test(version) ? version : `v${version}`;
+}
 
 export type PluginMetadataPanelProps = {
     name: string;
@@ -37,27 +42,42 @@ const PluginMetadataPanel = ({
     releaseNotesUrl,
     className,
 }: PluginMetadataPanelProps) => {
+    const formattedVersion = formatPluginVersion(version);
+
+    let nameElement: React.ReactNode = <strong>{name}</strong>;
+    if (homepageUrl) {
+        nameElement = (
+            <ExternalLink
+                href={homepageUrl}
+                location='plugin_metadata_panel'
+            >
+                <strong>{name}</strong>
+            </ExternalLink>
+        );
+    }
+
     return (
         <span
             className={classNames('PluginMetadataPanel', className)}
             data-testid='plugin-metadata-panel'
         >
-            <strong>{name}</strong>
+            {nameElement}
             {' ('}
-            <span data-testid='plugin-metadata-id'>{id}</span>
+            <span className='PluginMetadataPanel__idWrapper'>
+                <code
+                    className='PluginMetadataPanel__id'
+                    data-testid='plugin-metadata-id'
+                >
+                    {id}
+                </code>
+                <CopyButton
+                    content={id}
+                    isForText={true}
+                    className='PluginMetadataPanel__copy'
+                />
+            </span>
             {' - '}
-            <span data-testid='plugin-metadata-version'>{version}</span>
-            {homepageUrl && (
-                <>
-                    {' - '}
-                    <ExternalLink
-                        href={homepageUrl}
-                        location='plugin_metadata_panel'
-                    >
-                        <FormattedMessage {...messages.website}/>
-                    </ExternalLink>
-                </>
-            )}
+            <span data-testid='plugin-metadata-version'>{formattedVersion}</span>
             {releaseNotesUrl && (
                 <>
                     {' - '}

@@ -1,4 +1,23 @@
 .PluginMetadataPanel {
     font-size: inherit;
     line-height: inherit;
+
+    &__idWrapper {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        vertical-align: baseline;
+    }
+
+    &__id {
+        font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
+        font-size: 0.9em;
+        padding: 1px 4px;
+        border-radius: 3px;
+    }
+
+    &__copy {
+        position: relative;
+        top: 1px;
+    }
 }

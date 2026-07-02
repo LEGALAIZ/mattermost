@@ -3,12 +3,24 @@
 
 import React from 'react';
 
-import PluginMetadataPanel from 'components/admin_console/plugin_metadata_panel/plugin_metadata_panel';
+import PluginMetadataPanel, {formatPluginVersion} from 'components/admin_console/plugin_metadata_panel/plugin_metadata_panel';
 
 import {screen, renderWithContext} from 'tests/react_testing_utils';
 
+describe('formatPluginVersion', () => {
+    test('should prefix version with v when missing', () => {
+        expect(formatPluginVersion('0.7.4')).toBe('v0.7.4');
+        expect(formatPluginVersion('1.2.3')).toBe('v1.2.3');
+    });
+
+    test('should not duplicate v prefix', () => {
+        expect(formatPluginVersion('v0.7.4')).toBe('v0.7.4');
+        expect(formatPluginVersion('V1.0.0')).toBe('V1.0.0');
+    });
+});
+
 describe('PluginMetadataPanel', () => {
-    test('should render plugin name, id, and version on one line', () => {
+    test('should render plugin name, code-styled id, and version on one line', () => {
         renderWithContext(
             <PluginMetadataPanel
                 name='FL3XX'
@@ -17,12 +29,14 @@ describe('PluginMetadataPanel', () => {
             />,
         );
 
-        expect(screen.getByTestId('plugin-metadata-panel')).toHaveTextContent('FL3XX (com.mattermost.fl3xx - 0.7.4)');
+        expect(screen.getByTestId('plugin-metadata-panel')).toHaveTextContent('FL3XX (com.mattermost.fl3xx - v0.7.4)');
+        expect(screen.getByTestId('plugin-metadata-id').tagName).toBe('CODE');
         expect(screen.getByTestId('plugin-metadata-id')).toHaveTextContent('com.mattermost.fl3xx');
-        expect(screen.getByTestId('plugin-metadata-version')).toHaveTextContent('0.7.4');
+        expect(screen.getByTestId('plugin-metadata-version')).toHaveTextContent('v0.7.4');
+        expect(screen.getByRole('button', {name: 'Copy text'})).toBeInTheDocument();
     });
 
-    test('should render website and release notes links when provided', () => {
+    test('should link display name to website and release notes when provided', () => {
         renderWithContext(
             <PluginMetadataPanel
                 name='Agents Plugin'
@@ -33,8 +47,9 @@ describe('PluginMetadataPanel', () => {
             />,
         );
 
-        expect(screen.getByText('website')).toHaveAttribute('href', 'https://github.com/mattermost/mattermost-plugin-ai');
+        expect(screen.getByRole('link', {name: 'Agents Plugin'})).toHaveAttribute('href', 'https://github.com/mattermost/mattermost-plugin-ai');
         expect(screen.getByText('release notes')).toHaveAttribute('href', 'https://github.com/mattermost/mattermost-plugin-ai/releases/tag/v1.2.3');
+        expect(screen.queryByText('website')).not.toBeInTheDocument();
     });
 
     test('should not render links when urls are not provided', () => {
@@ -46,7 +61,6 @@ describe('PluginMetadataPanel', () => {
             />,
         );
 
-        expect(screen.queryByText('website')).not.toBeInTheDocument();
-        expect(screen.queryByText('release notes')).not.toBeInTheDocument();
+        expect(screen.queryByRole('link')).not.toBeInTheDocument();
     });
 });
