@@ -22,7 +22,7 @@ export function formatPluginVersion(version: string): string {
         return version;
     }
 
-    return /^v/i.test(version) ? version : `v${version}`;
+    return (/^v/i).test(version) ? version : `v${version}`;
 }
 
 export type PluginMetadataPanelProps = {
