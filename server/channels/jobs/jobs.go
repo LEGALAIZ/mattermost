@@ -153,6 +153,10 @@ func (srv *JobServer) SetJobWarning(job *model.Job) *model.AppError {
 	if err != nil {
 		return model.NewAppError("SetJobWarning", "app.job.update.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
 	}
+	if srv.metrics != nil {
+		srv.metrics.DecrementJobActive(job.Type)
+	}
+
 	srv.publishJobStatus(ret, model.JobStatusWarning)
 	return nil
 }
