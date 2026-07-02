@@ -735,8 +735,8 @@ func TestGetClientConfig(t *testing.T) {
 			"",
 			nil,
 			map[string]string{
-				"EnableAuditLogging": "false",
-				"AuditLoggingActive": "false",
+				"EnableAccessControlAuditLogging": "false",
+				"AuditLoggingActive":              "false",
 			},
 			[]string{},
 		},
@@ -751,8 +751,8 @@ func TestGetClientConfig(t *testing.T) {
 			"",
 			nil,
 			map[string]string{
-				"EnableAuditLogging": "false",
-				"AuditLoggingActive": "true",
+				"EnableAccessControlAuditLogging": "false",
+				"AuditLoggingActive":              "true",
 			},
 			[]string{},
 		},
@@ -760,14 +760,14 @@ func TestGetClientConfig(t *testing.T) {
 			"audit logging - setting enabled independent of active state",
 			&model.Config{
 				AccessControlSettings: model.AccessControlSettings{
-					EnableAuditLogging: new(true),
+					EnableAccessControlAuditLogging: new(true),
 				},
 			},
 			"",
 			nil,
 			map[string]string{
-				"EnableAuditLogging": "true",
-				"AuditLoggingActive": "false",
+				"EnableAccessControlAuditLogging": "true",
+				"AuditLoggingActive":              "false",
 			},
 			[]string{},
 		},

@@ -73,8 +73,8 @@ func TestConfigDefaults(t *testing.T) {
 	t.Run("access control audit logging default", func(t *testing.T) {
 		c := Config{}
 		c.SetDefaults()
-		require.NotNil(t, c.AccessControlSettings.EnableAuditLogging)
-		require.False(t, *c.AccessControlSettings.EnableAuditLogging)
+		require.NotNil(t, c.AccessControlSettings.EnableAccessControlAuditLogging)
+		require.False(t, *c.AccessControlSettings.EnableAccessControlAuditLogging)
 	})
 }
 

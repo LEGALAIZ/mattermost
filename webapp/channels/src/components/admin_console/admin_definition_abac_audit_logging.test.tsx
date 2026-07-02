@@ -46,7 +46,7 @@ function getAuditLoggingSetting(): BoolAdminDefinitionSetting {
     const schema = subsection.schema;
     const sections = 'sections' in schema ? schema.sections ?? [] : [];
     const settings = sections[0]?.settings ?? [];
-    const setting = settings.find((s) => s.key === 'AccessControlSettings.EnableAuditLogging');
+    const setting = settings.find((s) => s.key === 'AccessControlSettings.EnableAccessControlAuditLogging');
     return setting as BoolAdminDefinitionSetting;
 }
 
@@ -60,12 +60,12 @@ describe('AdminDefinition - ABAC audit logging toggle', () => {
         mockedGetConfig.mockReset();
     });
 
-    test('defines the EnableAuditLogging bool setting with the expected copy', () => {
+    test('defines the EnableAccessControlAuditLogging bool setting with the expected copy', () => {
         const setting = getAuditLoggingSetting();
 
         expect(setting).toBeDefined();
         expect(setting.type).toBe('bool');
-        expect(setting.key).toBe('AccessControlSettings.EnableAuditLogging');
+        expect(setting.key).toBe('AccessControlSettings.EnableAccessControlAuditLogging');
         expect(setting.label).toBeDefined();
         expect((setting.label as {id: string}).id).toBe('admin.accesscontrol.enableAuditLogging.title');
         expect(setting.help_text).toBeDefined();

@@ -247,7 +247,7 @@ export type ClientConfig = {
     // Access Control Settings
     EnableAttributeBasedAccessControl: string;
     EnableUserManagedAttributes: string;
-    EnableAuditLogging: string;
+    EnableAccessControlAuditLogging: string;
     AuditLoggingActive: string;
 
     // Auto Translation Settings
@@ -1063,7 +1063,7 @@ export type AccessControlSettings = {
     EnableUserManagedAttributes: boolean;
     TrustProxyDeviceIdentityHeader: boolean;
     EnforceDeviceIDConsistency: boolean;
-    EnableAuditLogging: boolean;
+    EnableAccessControlAuditLogging: boolean;
 };
 
 export type ContentFlaggingNotificationSettings = {
