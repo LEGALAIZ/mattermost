@@ -16,25 +16,14 @@ type FeatureFlags struct {
 	// all other values as false.
 	TestBoolFeature bool
 
-	// Enable the remote cluster service for shared channels.
-	EnableRemoteClusterService bool
-
 	// Enable DMs and GMs for shared channels.
 	EnableSharedChannelsDMs bool
-
-	// Enable plugins in shared channels.
-	EnableSharedChannelsPlugins bool
-
-	// Enable synchronization of channel members in shared channels
-	EnableSharedChannelsMemberSync bool
 
 	// Enable syncing all users for remote clusters in shared channels
 	EnableSyncAllUsersForRemoteCluster bool
 
 	// AppsEnabled toggles the Apps framework functionalities both in server and client side
 	AppsEnabled bool
-
-	PermalinkPreviews bool
 
 	NormalizeLdapDNs bool
 
@@ -43,21 +32,13 @@ type FeatureFlags struct {
 
 	OnboardingTourTips bool
 
-	DeprecateCloudFree bool
-
 	EnableExportDirectDownload bool
 
 	MoveThreadsEnabled bool
 
 	StreamlinedMarketplace bool
 
-	CloudIPFiltering bool
-	ConsumePostHook  bool
-
-	CloudAnnualRenewals    bool
 	CloudDedicatedExportUI bool
-
-	ChannelBookmarks bool
 
 	WebSocketEventScope bool
 
@@ -140,6 +121,9 @@ type FeatureFlags struct {
 	// ManagedChannelCategories enables server-side managed sidebar category enforcement (Enterprise).
 	ManagedChannelCategories bool
 
+	// Enable collection of request-provided session attributes (user agent, IP address, etc.).
+	SessionAttributes bool
+
 	// FEATURE_FLAG_REMOVAL: DiscoverableChannels - Remove this when the feature is GA.
 	// Gates the per-channel Discoverable toggle and the channel-join-request flow that lets
 	// non-members find a private channel in Browse Channels and request to join it.
@@ -147,38 +131,43 @@ type FeatureFlags struct {
 
 	// Enable Mobile Ephemeral Mode for controlling data persistence on mobile devices
 	MobileEphemeralMode bool
+
+	// FEATURE_FLAG_REMOVAL: PropertyFieldRank - Remove this when the feature is GA.
+	// Gates the "rank" custom profile attribute type: when off, the app layer
+	// rejects creating a rank property field or converting an existing field to
+	// rank, and the admin console hides the rank type option.
+	PropertyFieldRank bool
+
+	// Requires AttributeBasedAccessControl to also be enabled.
+	TeamMembershipAccessControl bool
+
+	// Enable the new mm_blocks Interactive Messages framework
+	MmBlocksEnabled bool
 }
 
 func (f *FeatureFlags) SetDefaults() {
 	f.TestFeature = "off"
 	f.TestBoolFeature = false
-	f.EnableRemoteClusterService = false
 	f.EnableSharedChannelsDMs = false
-	f.EnableSharedChannelsMemberSync = false
 	f.EnableSyncAllUsersForRemoteCluster = false
-	f.EnableSharedChannelsPlugins = true
 	f.AppsEnabled = false
 	f.NormalizeLdapDNs = false
-	f.DeprecateCloudFree = false
 	f.WysiwygEditor = false
 	f.OnboardingTourTips = true
 	f.EnableExportDirectDownload = false
 	f.MoveThreadsEnabled = false
 	f.StreamlinedMarketplace = true
-	f.CloudIPFiltering = false
-	f.ConsumePostHook = false
-	f.CloudAnnualRenewals = false
 	f.CloudDedicatedExportUI = false
-	f.ChannelBookmarks = true
 	f.WebSocketEventScope = true
 	f.NotificationMonitoring = true
 	f.ExperimentalAuditSettingsSystemConsoleUI = true
 	f.CustomProfileAttributes = true
 	f.AttributeBasedAccessControl = true
-	f.AttributeValueMasking = false
-	f.PermissionPolicies = false
-	f.ChannelPermissionPolicies = false
-	f.PolicySimulation = false
+	f.AttributeValueMasking = true
+	f.PermissionPolicies = true
+	f.TeamMembershipAccessControl = false
+	f.ChannelPermissionPolicies = true
+	f.PolicySimulation = true
 	f.ContentFlagging = true
 	f.EnableMattermostEntry = true
 
@@ -188,7 +177,7 @@ func (f *FeatureFlags) SetDefaults() {
 
 	f.AutoTranslation = true
 
-	f.ClassificationMarkings = false
+	f.ClassificationMarkings = true
 
 	f.BurnOnRead = true
 
@@ -199,15 +188,21 @@ func (f *FeatureFlags) SetDefaults() {
 
 	f.IntegratedBoards = false
 
-	f.CJKSearch = false
+	f.CJKSearch = true
 
 	f.AggregatePluginMetrics = false
 
 	f.ManagedChannelCategories = false
 
+	f.SessionAttributes = false
+
 	f.DiscoverableChannels = false
 
 	f.MobileEphemeralMode = false
+
+	f.PropertyFieldRank = true
+
+	f.MmBlocksEnabled = true
 }
 
 // IsChannelPermissionPoliciesEnabled reports whether channel-scope

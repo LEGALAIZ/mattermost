@@ -14,6 +14,7 @@ import (
 
 type Client interface {
 	CreateChannel(ctx context.Context, channel *model.Channel) (*model.Channel, *model.Response, error)
+	CreateDirectChannel(ctx context.Context, userID1, userID2 string) (*model.Channel, *model.Response, error)
 	RemoveUserFromChannel(ctx context.Context, channelID, userID string) (*model.Response, error)
 	GetChannelMembers(ctx context.Context, channelID string, page, perPage int, etag string) (model.ChannelMembers, *model.Response, error)
 	AddChannelMember(ctx context.Context, channelID, userID string) (*model.ChannelMember, *model.Response, error)
@@ -64,6 +65,7 @@ type Client interface {
 	EnablePlugin(ctx context.Context, id string) (*model.Response, error)
 	DisablePlugin(ctx context.Context, id string) (*model.Response, error)
 	GetPlugins(ctx context.Context) (*model.PluginsResponse, *model.Response, error)
+	GetMe(ctx context.Context, etag string) (*model.User, *model.Response, error)
 	GetUser(ctx context.Context, userID, etag string) (*model.User, *model.Response, error)
 	GetUserByUsername(ctx context.Context, userName, etag string) (*model.User, *model.Response, error)
 	GetUserByEmail(ctx context.Context, email, etag string) (*model.User, *model.Response, error)
@@ -82,7 +84,7 @@ type Client interface {
 	UpdateUserMfa(ctx context.Context, userID, code string, activate bool) (*model.Response, error)
 	UpdateUserPassword(ctx context.Context, userID, currentPassword, newPassword string) (*model.Response, error)
 	UpdateUserHashedPassword(ctx context.Context, userID, newHashedPassword string) (*model.Response, error)
-	CreateUserAccessToken(ctx context.Context, userID, description string) (*model.UserAccessToken, *model.Response, error)
+	CreateUserAccessToken(ctx context.Context, userID, description string, expiresAt int64) (*model.UserAccessToken, *model.Response, error)
 	RevokeUserAccessToken(ctx context.Context, tokenID string) (*model.Response, error)
 	GetUserAccessTokensForUser(ctx context.Context, userID string, page, perPage int) ([]*model.UserAccessToken, *model.Response, error)
 	ConvertUserToBot(ctx context.Context, userID string) (*model.Bot, *model.Response, error)

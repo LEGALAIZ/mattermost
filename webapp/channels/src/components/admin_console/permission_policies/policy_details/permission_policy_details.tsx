@@ -29,7 +29,7 @@ import {useChannelAccessControlActions} from 'hooks/useChannelAccessControlActio
 import {getHistory} from 'utils/browser_history';
 
 import CELEditor from '../../access_control/editors/cel_editor/editor';
-import {hasUsableAttributes} from '../../access_control/editors/shared';
+import {hasUsableAttributes, isSimpleExpression} from '../../access_control/editors/shared';
 import TableEditor from '../../access_control/editors/table_editor/table_editor';
 
 import './permission_policy_details.scss';
@@ -93,6 +93,7 @@ export interface PermissionPolicyDetailsProps {
     policy?: AccessControlPolicy;
     policyId?: string;
     accessControlSettings: AccessControlSettings;
+    sessionAttributesEnabled: boolean;
     actions: PolicyActions;
 }
 
@@ -113,6 +114,7 @@ function PermissionPolicyDetails({
     policyId,
     actions,
     accessControlSettings,
+    sessionAttributesEnabled,
 }: PermissionPolicyDetailsProps): JSX.Element {
     const [policyName, setPolicyName] = useState(policy?.name || '');
     const [expression, setExpression] = useState(policy?.rules?.[0]?.expression || '');
@@ -140,26 +142,15 @@ function PermissionPolicyDetails({
     // the channel-settings Permissions Policy tab.
     const policySimulationEnabled = useSelector(isPolicySimulationEnabled);
 
-    const noUsableAttributes = attributesLoaded && !hasUsableAttributes(autocompleteResult, accessControlSettings.EnableUserManagedAttributes);
+    // Permission policies can reference session attributes (e.g. user.session.ip_address),
+    // so the editor stays usable even without any configured user attributes when SessionAttributes is on.
+    const noUsableAttributes = attributesLoaded && !sessionAttributesEnabled && !hasUsableAttributes(autocompleteResult, accessControlSettings.EnableUserManagedAttributes);
 
     useEffect(() => {
         loadPage().finally(() => setPageLoaded(true));
     }, [policyId]);
 
-    const isSimpleExpression = (expr: string): boolean => {
-        if (!expr) {
-            return true;
-        }
-        return expr.split('&&').every((condition) => {
-            const trimmed = condition.trim();
-            return trimmed.match(/^user\.attributes\.\w+\s*(==|!=)\s*['"][^'"]*['"]$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\s+in\s+\[.*?\]$/) ||
-                   trimmed.match(/^((\[.*?\])||['"][^'"]*['"].*?)\s+in\s+user\.attributes\.\w+$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.startsWith\(['"][^'"]*['"].*?\)$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.endsWith\(['"][^'"]*['"].*?\)$/) ||
-                   trimmed.match(/^user\.attributes\.\w+\.contains\(['"][^'"]*['"].*?\)$/);
-        });
-    };
+    // isSimpleExpression imported from ../../access_control/editors/shared
 
     const loadPage = async (): Promise<void> => {
         const fieldsPromise = abacActions.getAccessControlFields('', 100).then((result) => {
