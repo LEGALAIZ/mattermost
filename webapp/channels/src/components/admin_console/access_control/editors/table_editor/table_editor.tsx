@@ -19,7 +19,7 @@ import ValueSelectorMenu from './value_selector_menu';
 
 import CELHelpModal from '../../modals/cel_help/cel_help_modal';
 import TestResultsModal from '../../modals/policy_test/test_modal';
-import {AddAttributeButton, TestButton, HelpText, OPERATOR_CONFIG, OPERATOR_LABELS, OperatorLabel, isMultiValueOperator, isMultiselectOperator, isRankOperator, celPathFor, isNativeField, isNativeBooleanField, allowedOperatorLabelsForField, defaultOperatorForField} from '../shared';
+import {AddAttributeButton, TestButton, HelpText, OPERATOR_CONFIG, OPERATOR_LABELS, OperatorLabel, isMultiValueOperator, isMultiselectOperator, isRankOperator, celPathFor, isNativeField, isNativeBooleanField, allowedOperatorLabelsForField, defaultOperatorForField, isValidYoungerThanDaysValue} from '../shared';
 
 import './table_editor.scss';
 
@@ -44,13 +44,12 @@ export function rowToCEL(row: TableRow): string {
     const config = OPERATOR_CONFIG[row.operator];
 
     // native_method (e.g. youngerThanDays) takes an unquoted integer argument.
-    // Sanitize to a normalized non-negative integer so a stray keystroke can't
-    // emit invalid CEL like user.createat.youngerThanDays(abc), which would stop
-    // the rule from round-tripping through the table editor.
+    // A valid non-negative integer is normalized (stripping leading zeros);
+    // anything else is emitted verbatim so the invalid rule surfaces an error on
+    // save rather than being silently coerced to a different value (e.g. 0).
     if (config?.type === 'native_method') {
-        const raw = row.values.length > 0 ? row.values[0] : '';
-        const digits = raw.replace(/\D/g, '');
-        const arg = digits === '' ? '0' : String(parseInt(digits, 10));
+        const raw = (row.values.length > 0 ? row.values[0] : '').trim();
+        const arg = isValidYoungerThanDaysValue(raw) ? String(parseInt(raw, 10)) : raw;
         return `${attributeExpr}.${config.celOp}(${arg})`;
     }
 
@@ -92,6 +91,17 @@ export function rowToCEL(row: TableRow): string {
     }
 
     return `${attributeExpr}.${config.celOp}(${celStringLiteral(value)})`;
+}
+
+// A row that forms part of the expression is only valid if its value satisfies
+// the operator's requirements. Today this only constrains native methods such
+// as youngerThanDays, whose argument must be a non-negative integer.
+export function isRowValueValid(row: TableRow): boolean {
+    const config = OPERATOR_CONFIG[row.operator];
+    if (config?.type === 'native_method') {
+        return isValidYoungerThanDaysValue(row.values.length > 0 ? row.values[0] : '');
+    }
+    return true;
 }
 
 interface TableEditorProps {
@@ -362,10 +372,15 @@ function TableEditor({
 
         const expr = rowsThatCanFormExpressions.map((row) => rowToCEL(row)).join(' && ');
 
+        // A youngerThanDays row with a non-integer value emits invalid CEL; flag
+        // the whole expression invalid so the rule can't be saved with a value
+        // that would otherwise be silently coerced.
+        const allValuesValid = rowsThatCanFormExpressions.every(isRowValueValid);
+
         isInternalChange.current = true;
         onChange(expr);
         if (onValidate) {
-            onValidate(expr === '' || rowsThatCanFormExpressions.length > 0);
+            onValidate((expr === '' || rowsThatCanFormExpressions.length > 0) && allValuesValid);
         }
     }, [onChange, onValidate]);
 
@@ -541,6 +556,8 @@ function TableEditor({
                         rows.map((row, index) => {
                             const field = userAttributes.find((attr) => attr.name === row.attribute);
                             const isYoungerThan = row.operator === OperatorLabel.YOUNGER_THAN;
+                            const youngerThanValue = row.values.length > 0 ? row.values[0] : '';
+                            const youngerThanInvalid = isYoungerThan && youngerThanValue.trim() !== '' && !isValidYoungerThanDaysValue(youngerThanValue);
                             return (
                                 <tr
                                     key={index}
@@ -576,6 +593,14 @@ function TableEditor({
                                             options={row.attribute ? field?.attrs?.options || [] : []}
                                             placeholder={isYoungerThan ? formatMessage({id: 'admin.access_control.table_editor.value.days_placeholder', defaultMessage: 'Number of days'}) : undefined}
                                         />
+                                        {youngerThanInvalid && (
+                                            <div className='table-editor__value-error'>
+                                                <FormattedMessage
+                                                    id='admin.access_control.table_editor.value.days_invalid'
+                                                    defaultMessage='Enter a whole number of days (e.g. 30).'
+                                                />
+                                            </div>
+                                        )}
                                     </td>
                                     <td className='table-editor__cell-actions'>
                                         <button

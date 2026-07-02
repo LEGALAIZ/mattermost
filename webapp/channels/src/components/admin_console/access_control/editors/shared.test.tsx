@@ -7,7 +7,7 @@ import type {UserPropertyField} from '@mattermost/types/properties';
 
 import {renderWithContext, screen} from 'tests/react_testing_utils';
 
-import {TestButton, hasUsableAttributes, toCELEditorAttributes, allowedOperatorLabelsForField, defaultOperatorForField, isNativeBooleanField} from './shared';
+import {TestButton, hasUsableAttributes, toCELEditorAttributes, allowedOperatorLabelsForField, defaultOperatorForField, isNativeBooleanField, isValidYoungerThanDaysValue} from './shared';
 
 const makeField = (name: string, attrs: Partial<UserPropertyField['attrs']>, type: UserPropertyField['type'] = 'text'): UserPropertyField => ({
     id: `id-${name}`,
@@ -520,5 +520,15 @@ describe('isNativeBooleanField', () => {
     test('false for a non-native select with true/false options', () => {
         const field = makeField('flag', {options: [{id: '1', name: 'true'}, {id: '2', name: 'false'}]}, 'select');
         expect(isNativeBooleanField(field)).toBe(false);
+    });
+});
+
+describe('isValidYoungerThanDaysValue', () => {
+    test.each(['0', '7', '30', '365', '007', '  30  '])('accepts non-negative integer %p', (value) => {
+        expect(isValidYoungerThanDaysValue(value)).toBe(true);
+    });
+
+    test.each(['', 'ten', '-5', '3.5', '1e3', '30abc', 'NaN'])('rejects non-integer value %p', (value) => {
+        expect(isValidYoungerThanDaysValue(value)).toBe(false);
     });
 });

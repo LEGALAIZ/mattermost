@@ -5,7 +5,8 @@ import type {AccessControlVisualAST} from '@mattermost/types/access_control';
 import type {FieldType, UserPropertyField} from '@mattermost/types/properties';
 
 import {isSimpleExpression, isSimpleCondition, isMultiselectOrGroup} from 'components/admin_console/access_control/editors/shared';
-import {parseExpression, findFirstAvailableAttributeFromList, rowToCEL, celStringLiteral} from 'components/admin_console/access_control/editors/table_editor/table_editor';
+import {parseExpression, findFirstAvailableAttributeFromList, rowToCEL, celStringLiteral, isRowValueValid} from 'components/admin_console/access_control/editors/table_editor/table_editor';
+import type {TableRow} from 'components/admin_console/access_control/editors/table_editor/value_selector_menu';
 
 describe('parseExpression', () => {
     test('handles "==" operator mapping to "is"', () => {
@@ -703,16 +704,29 @@ describe('rowToCEL with native user attributes', () => {
 
     test.each([
         ['30', 'user.createat.youngerThanDays(30)'],
-        ['', 'user.createat.youngerThanDays(0)'],
-        ['abc', 'user.createat.youngerThanDays(0)'],
-        ['30abc', 'user.createat.youngerThanDays(30)'],
         ['007', 'user.createat.youngerThanDays(7)'],
-        ['-5', 'user.createat.youngerThanDays(5)'],
-    ])('youngerThanDays sanitizes %p to a non-negative integer', (input, expected) => {
+    ])('youngerThanDays normalizes valid integer %p', (input, expected) => {
         const cel = rowToCEL({
             attribute: 'createat',
             operator: 'younger than',
-            values: input === '' ? [] : [input],
+            values: [input],
+            attribute_type: 'text',
+            hasMaskedValues: false,
+            isNative: true,
+        });
+        expect(cel).toBe(expected);
+    });
+
+    test.each([
+        ['ten', 'user.createat.youngerThanDays(ten)'],
+        ['30abc', 'user.createat.youngerThanDays(30abc)'],
+        ['-5', 'user.createat.youngerThanDays(-5)'],
+        ['3.5', 'user.createat.youngerThanDays(3.5)'],
+    ])('youngerThanDays emits invalid value %p verbatim so it errors on save', (input, expected) => {
+        const cel = rowToCEL({
+            attribute: 'createat',
+            operator: 'younger than',
+            values: [input],
             attribute_type: 'text',
             hasMaskedValues: false,
             isNative: true,
@@ -730,6 +744,35 @@ describe('rowToCEL with native user attributes', () => {
             isNative: true,
         });
         expect(cel).toBe('user.createat.youngerThanDays(30)');
+    });
+});
+
+describe('isRowValueValid', () => {
+    const makeRow = (value: string): TableRow => ({
+        attribute: 'createat',
+        operator: 'younger than',
+        values: value === '' ? [] : [value],
+        attribute_type: 'text',
+        hasMaskedValues: false,
+        isNative: true,
+    });
+
+    test.each(['30', '0', '007'])('accepts non-negative integer %p', (value) => {
+        expect(isRowValueValid(makeRow(value))).toBe(true);
+    });
+
+    test.each(['', 'ten', '30abc', '-5', '3.5'])('rejects invalid youngerThanDays value %p', (value) => {
+        expect(isRowValueValid(makeRow(value))).toBe(false);
+    });
+
+    test('non-native rows are always considered valid', () => {
+        expect(isRowValueValid({
+            attribute: 'team',
+            operator: 'is',
+            values: ['anything'],
+            attribute_type: 'text',
+            hasMaskedValues: false,
+        })).toBe(true);
     });
 });
 

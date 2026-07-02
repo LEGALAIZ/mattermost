@@ -139,6 +139,13 @@ export function celPathFor(name: string, isNative: boolean): string {
     return isNative ? `user.${name}` : `user.attributes.${name}`;
 }
 
+// The youngerThanDays operator argument must be a non-negative integer (a whole
+// number of days). Anything else (e.g. "ten", "-5", "3.5") is rejected so the
+// editor surfaces an error instead of silently coercing the value.
+export function isValidYoungerThanDaysValue(value: string): boolean {
+    return (/^\d+$/).test(value.trim());
+}
+
 // Returns the operator labels a field may use. Native fields advertise their
 // allowed operator tokens via attrs.operators; everything else falls back to the
 // full set (operator menu still applies its multiselect filter).

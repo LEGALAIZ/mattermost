@@ -125,6 +125,6 @@ describe('OperatorSelectorMenu', () => {
 
         const menuItems = screen.getAllByRole('menuitemradio');
         const menuTexts = menuItems.map((item) => item.textContent);
-        expect(menuTexts).toEqual(['younger than']);
+        expect(menuTexts).toEqual(['younger than (days)']);
     });
 });

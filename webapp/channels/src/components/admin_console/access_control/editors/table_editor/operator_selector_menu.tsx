@@ -295,7 +295,7 @@ const OPERATOR_DESCRIPTORS: IDMappedObjects<OperatorDescriptor> = {
         icon: ClockOutlineIcon,
         label: defineMessage({
             id: 'admin.access_control.table_editor.operator.younger_than',
-            defaultMessage: 'younger than',
+            defaultMessage: 'younger than (days)',
         }),
     },
 };
