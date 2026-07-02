@@ -309,6 +309,7 @@ func (srv *JobServer) RequestCancellation(rctx request.CTX, jobId string) *model
 	}
 
 	if newJob != nil {
+		srv.publishJobStatus(newJob, model.JobStatusCancelRequested)
 		return nil
 	}
 
