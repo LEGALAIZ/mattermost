@@ -621,20 +621,31 @@ func (h *AccessControlHook) extractActingAsScope(rctx request.CTX) string {
 	return h.propertyService.extractActingAsScope(rctx)
 }
 
-// isCallerPlugin checks whether the callerID corresponds to an installed plugin.
-func (h *AccessControlHook) isCallerPlugin(callerID string) bool {
-	return callerID != "" && h.pluginChecker != nil && h.pluginChecker(callerID)
+// callerIsPlugin checks whether the callerID corresponds to an installed plugin.
+func callerIsPlugin(pluginChecker PluginChecker, callerID string) bool {
+	return callerID != "" && pluginChecker != nil && pluginChecker(callerID)
 }
 
-// isMachineCaller reports whether the caller is a machine actor (an installed
+// callerIsMachine reports whether the caller is a machine actor (an installed
 // plugin or a built-in sync service) rather than a human. Owner-list
 // enforcement applies only to machine callers; human callers (session users
 // and local admins) are governed by the API-layer permission levels.
-func (h *AccessControlHook) isMachineCaller(callerID string) bool {
-	if h.isCallerPlugin(callerID) {
+func callerIsMachine(pluginChecker PluginChecker, callerID string) bool {
+	if callerIsPlugin(pluginChecker, callerID) {
 		return true
 	}
 	return callerID == model.CallerIDLDAPSync || callerID == model.CallerIDSAMLSync
+}
+
+// isCallerPlugin checks whether the callerID corresponds to an installed plugin.
+func (h *AccessControlHook) isCallerPlugin(callerID string) bool {
+	return callerIsPlugin(h.pluginChecker, callerID)
+}
+
+// isMachineCaller reports whether the caller is a machine actor (an installed
+// plugin or a built-in sync service) rather than a human.
+func (h *AccessControlHook) isMachineCaller(callerID string) bool {
+	return callerIsMachine(h.pluginChecker, callerID)
 }
 
 // callerOwnerIdentity maps a machine caller (and its acting-as scope) to the
@@ -653,6 +664,35 @@ func (h *AccessControlHook) callerOwnerIdentity(callerID, scope string) (ownerID
 	}
 }
 
+// effectiveOwners returns the owners list used for value-write access checks on
+// an owner-managed field. Explicit owners from the attrs blob are augmented
+// with implicit service owners derived from attrs.ldap / attrs.saml so a field
+// can be written by both a listed plugin/scope and its legacy sync source.
+// Implicit service owners are only added when explicit owners are present;
+// legacy synced-only fields continue through checkSyncLock instead.
+func (h *AccessControlHook) effectiveOwners(field *model.PropertyField) []model.PropertyOwner {
+	owners := model.GetPropertyFieldOwners(field)
+	if len(owners) == 0 || field.Attrs == nil {
+		return owners
+	}
+
+	if ldap, _ := field.Attrs[model.PropertyFieldAttrLDAP].(string); ldap != "" {
+		owners = append(owners, model.PropertyOwner{
+			ID:     "ldap",
+			Type:   model.PropertyOwnerTypeService,
+			Scopes: []string{"ldap"},
+		})
+	}
+	if saml, _ := field.Attrs[model.PropertyFieldAttrSAML].(string); saml != "" {
+		owners = append(owners, model.PropertyOwner{
+			ID:     "saml",
+			Type:   model.PropertyOwnerTypeService,
+			Scopes: []string{"saml"},
+		})
+	}
+	return owners
+}
+
 // checkOwnerValueWriteAccess enforces a field's owners list on a value write.
 // A machine caller is allowed only if it is a listed owner (matching ID and
 // type) whose scopes contain the caller's acting-as scope. Human callers pass
@@ -663,7 +703,7 @@ func (h *AccessControlHook) checkOwnerValueWriteAccess(field *model.PropertyFiel
 	}
 
 	ownerID, ownerType, effectiveScope := h.callerOwnerIdentity(callerID, scope)
-	for _, owner := range model.GetPropertyFieldOwners(field) {
+	for _, owner := range h.effectiveOwners(field) {
 		if owner.Type == ownerType && owner.ID == ownerID && slices.Contains(owner.Scopes, effectiveScope) {
 			return nil
 		}

@@ -72,11 +72,11 @@ func RequestContextWithCallerID(rctx request.CTX, callerID string) request.CTX {
 	return rctx.WithContext(ctx)
 }
 
-// RequestContextWithCallerIDAndScope adds the caller ID and acting-as scope to
-// a request.CTX for access control purposes.
-func RequestContextWithCallerIDAndScope(rctx request.CTX, callerID, scope string) request.CTX {
+// RequestContextWithCallerIDAndOptions adds the caller ID and per-call
+// declarations to a request.CTX for access control purposes.
+func RequestContextWithCallerIDAndOptions(rctx request.CTX, callerID string, options model.PropertyRequestOptions) request.CTX {
 	ctx := model.WithCallerID(rctx.Context(), callerID)
-	ctx = model.WithActingAsScope(ctx, scope)
+	ctx = model.WithPropertyRequestOptions(ctx, options)
 	return rctx.WithContext(ctx)
 }
 

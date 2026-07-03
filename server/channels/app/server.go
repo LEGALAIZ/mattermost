@@ -343,13 +343,10 @@ func NewServer(options ...Option) (*Server, error) {
 	attrValidationHook := properties.NewAccessControlAttributeValidationHook(s.propertyService, permChecker, cpaGroup.ID)
 	s.propertyService.AddHook(attrValidationHook)
 
-	// Value attribution + audit hook — stamps CreatedBy/UpdatedBy on writes and
-	// emits a content-level audit record for each effective value change. The
-	// audit sink bridges to the App audit subsystem so the properties package
-	// stays independent of it.
-	valueAuditHook := properties.NewAccessControlValueAuditHook(s.propertyService, func(rctx request.CTX, action, targetType, targetID, fieldID string, success bool) {
-		app.auditCPAValueChange(rctx, action, targetType, targetID, fieldID, success)
-	}, cpaGroup.ID)
+	// Generic property value audit hook — groups opt in with RegisterGroup.
+	// The CPA group registers a content-level audit sink here.
+	valueAuditHook := properties.NewPropertyValueAuditHook()
+	valueAuditHook.RegisterGroup(cpaGroup.ID, app.auditCPAValueChange)
 	s.propertyService.AddHook(valueAuditHook)
 
 	// Field limit hook — enforces per-object-type and global field limits.

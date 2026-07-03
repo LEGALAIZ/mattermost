@@ -3374,7 +3374,6 @@
   "admin.system_properties.user_properties.table.validation.name_unique": "Attribute names must be unique.",
   "admin.system_properties.user_properties.table.validation.values_unique": "Values must be unique.",
   "admin.system_properties.user_properties.table.values": "Values",
-  "admin.system_properties.user_properties.table.values.managed_by": "Managed by: {owners}",
   "admin.system_properties.user_properties.table.values.managed_by_plugin": "Managed by plugin: {pluginId}",
   "admin.system_properties.user_properties.table.values.owner.scoped": "{provenance}: {scopes}",
   "admin.system_properties.user_properties.table.values.placeholder": "Add values… (required)",

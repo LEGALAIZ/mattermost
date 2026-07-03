@@ -52,14 +52,14 @@ func TestOwnerValueWriteAccessControl(t *testing.T) {
 	}
 
 	t.Run("allows owner plugin writing with a matching scope", func(t *testing.T) {
-		rctx := RequestContextWithCallerIDAndScope(th.Context, "plugin-owner", "entra")
+		rctx := RequestContextWithCallerIDAndOptions(th.Context, "plugin-owner", model.PropertyRequestOptions{ActingAsScope: "entra"})
 		v, upErr := th.service.UpsertPropertyValue(rctx, newValue())
 		require.NoError(t, upErr)
 		assert.NotNil(t, v)
 	})
 
 	t.Run("denies owner plugin writing with a non-matching scope", func(t *testing.T) {
-		rctx := RequestContextWithCallerIDAndScope(th.Context, "plugin-owner", "okta")
+		rctx := RequestContextWithCallerIDAndOptions(th.Context, "plugin-owner", model.PropertyRequestOptions{ActingAsScope: "okta"})
 		_, upErr := th.service.UpsertPropertyValue(rctx, newValue())
 		require.Error(t, upErr)
 	})
@@ -71,7 +71,7 @@ func TestOwnerValueWriteAccessControl(t *testing.T) {
 	})
 
 	t.Run("denies a non-owner plugin even with the right scope", func(t *testing.T) {
-		rctx := RequestContextWithCallerIDAndScope(th.Context, "plugin-other", "entra")
+		rctx := RequestContextWithCallerIDAndOptions(th.Context, "plugin-other", model.PropertyRequestOptions{ActingAsScope: "entra"})
 		_, upErr := th.service.UpsertPropertyValue(rctx, newValue())
 		require.Error(t, upErr)
 	})
@@ -147,7 +147,7 @@ func TestOwnerSupersedesLegacyAndSyncLockUnaffected(t *testing.T) {
 		require.NoError(t, upErr)
 
 		// A plugin caller is rejected by the sync lock.
-		rctxPlugin := RequestContextWithCallerIDAndScope(th.Context, "plugin-owner", "entra")
+		rctxPlugin := RequestContextWithCallerIDAndOptions(th.Context, "plugin-owner", model.PropertyRequestOptions{ActingAsScope: "entra"})
 		_, upErr = th.service.UpsertPropertyValue(rctxPlugin, &model.PropertyValue{
 			GroupID:    th.CPAGroupID,
 			FieldID:    created.ID,
@@ -156,5 +156,185 @@ func TestOwnerSupersedesLegacyAndSyncLockUnaffected(t *testing.T) {
 			Value:      json.RawMessage(`"v"`),
 		})
 		require.Error(t, upErr)
+	})
+}
+
+func TestOwnerValueWriteWithImplicitSyncOwners(t *testing.T) {
+	th := Setup(t).RegisterCPAPropertyGroup(t)
+	th.service.setPluginCheckerForTests(func(pluginID string) bool {
+		return pluginID == "plugin-owner" || pluginID == "plugin-other"
+	})
+
+	rctxOwner := RequestContextWithCallerID(th.Context, "plugin-owner")
+	created, err := th.service.CreatePropertyField(rctxOwner, &model.PropertyField{
+		GroupID:    th.CPAGroupID,
+		Name:       "SamlAndScim",
+		Type:       model.PropertyFieldTypeText,
+		ObjectType: model.PropertyFieldObjectTypeUser,
+		TargetType: string(model.PropertyFieldTargetLevelSystem),
+		Attrs: model.StringInterface{
+			model.PropertyAttrsOwners: []model.PropertyOwner{
+				{ID: "plugin-owner", Type: model.PropertyOwnerTypePlugin, Scopes: []string{"entra", "okta"}},
+			},
+			model.CustomProfileAttributesPropertyAttrsSAML: "department",
+		},
+	})
+	require.NoError(t, err)
+
+	newValue := func() *model.PropertyValue {
+		return &model.PropertyValue{
+			GroupID:    th.CPAGroupID,
+			FieldID:    created.ID,
+			TargetType: "user",
+			TargetID:   model.NewId(),
+			Value:      json.RawMessage(`"v"`),
+		}
+	}
+
+	t.Run("SAML sync caller can write via implicit service owner", func(t *testing.T) {
+		rctx := RequestContextWithCallerID(th.Context, model.CallerIDSAMLSync)
+		_, upErr := th.service.UpsertPropertyValue(rctx, newValue())
+		require.NoError(t, upErr)
+	})
+
+	t.Run("owner plugin can write with each listed scope", func(t *testing.T) {
+		for _, scope := range []string{"entra", "okta"} {
+			rctx := RequestContextWithCallerIDAndOptions(th.Context, "plugin-owner", model.PropertyRequestOptions{ActingAsScope: scope})
+			_, upErr := th.service.UpsertPropertyValue(rctx, newValue())
+			require.NoError(t, upErr, "scope %q", scope)
+		}
+	})
+
+	t.Run("owner plugin is denied for an unlisted scope", func(t *testing.T) {
+		rctx := RequestContextWithCallerIDAndOptions(th.Context, "plugin-owner", model.PropertyRequestOptions{ActingAsScope: "keycloak"})
+		_, upErr := th.service.UpsertPropertyValue(rctx, newValue())
+		require.Error(t, upErr)
+	})
+
+	t.Run("LDAP sync caller is denied without attrs.ldap", func(t *testing.T) {
+		rctx := RequestContextWithCallerID(th.Context, model.CallerIDLDAPSync)
+		_, upErr := th.service.UpsertPropertyValue(rctx, newValue())
+		require.Error(t, upErr)
+	})
+
+	t.Run("unlisted plugin is denied", func(t *testing.T) {
+		rctx := RequestContextWithCallerIDAndOptions(th.Context, "plugin-other", model.PropertyRequestOptions{ActingAsScope: "entra"})
+		_, upErr := th.service.UpsertPropertyValue(rctx, newValue())
+		require.Error(t, upErr)
+	})
+}
+
+func TestMultipleDistinctPluginOwners(t *testing.T) {
+	th := Setup(t).RegisterCPAPropertyGroup(t)
+	th.service.setPluginCheckerForTests(func(pluginID string) bool {
+		return pluginID == "plugin-a" || pluginID == "plugin-b"
+	})
+
+	rctxA := RequestContextWithCallerID(th.Context, "plugin-a")
+	created, err := th.service.CreatePropertyField(rctxA, &model.PropertyField{
+		GroupID:    th.CPAGroupID,
+		Name:       "MultiPluginOwners",
+		Type:       model.PropertyFieldTypeText,
+		ObjectType: model.PropertyFieldObjectTypeUser,
+		TargetType: string(model.PropertyFieldTargetLevelSystem),
+		Attrs: model.StringInterface{
+			model.PropertyAttrsOwners: []model.PropertyOwner{
+				{ID: "plugin-a", Type: model.PropertyOwnerTypePlugin, Scopes: []string{"scope-a"}},
+				{ID: "plugin-b", Type: model.PropertyOwnerTypePlugin, Scopes: []string{"scope-b"}},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	newValue := func() *model.PropertyValue {
+		return &model.PropertyValue{
+			GroupID:    th.CPAGroupID,
+			FieldID:    created.ID,
+			TargetType: "user",
+			TargetID:   model.NewId(),
+			Value:      json.RawMessage(`"v"`),
+		}
+	}
+
+	t.Run("each listed plugin can write with its scope", func(t *testing.T) {
+		rctxB := RequestContextWithCallerIDAndOptions(th.Context, "plugin-b", model.PropertyRequestOptions{ActingAsScope: "scope-b"})
+		_, upErr := th.service.UpsertPropertyValue(rctxB, newValue())
+		require.NoError(t, upErr)
+
+		rctxA := RequestContextWithCallerIDAndOptions(th.Context, "plugin-a", model.PropertyRequestOptions{ActingAsScope: "scope-a"})
+		_, upErr = th.service.UpsertPropertyValue(rctxA, newValue())
+		require.NoError(t, upErr)
+	})
+
+	t.Run("plugin cannot use another owner's scope", func(t *testing.T) {
+		rctx := RequestContextWithCallerIDAndOptions(th.Context, "plugin-a", model.PropertyRequestOptions{ActingAsScope: "scope-b"})
+		_, upErr := th.service.UpsertPropertyValue(rctx, newValue())
+		require.Error(t, upErr)
+	})
+}
+
+func TestOwnerSyncBidirectionalTransitions(t *testing.T) {
+	th := Setup(t).RegisterCPAPropertyGroup(t)
+	th.service.setPluginCheckerForTests(func(pluginID string) bool {
+		return pluginID == "plugin-owner"
+	})
+
+	newValue := func(fieldID string) *model.PropertyValue {
+		return &model.PropertyValue{
+			GroupID:    th.CPAGroupID,
+			FieldID:    fieldID,
+			TargetType: "user",
+			TargetID:   model.NewId(),
+			Value:      json.RawMessage(`"v"`),
+		}
+	}
+
+	assertCombinedWrites := func(t *testing.T, fieldID string) {
+		t.Helper()
+		rctxSAML := RequestContextWithCallerID(th.Context, model.CallerIDSAMLSync)
+		_, upErr := th.service.UpsertPropertyValue(rctxSAML, newValue(fieldID))
+		require.NoError(t, upErr)
+
+		rctxPlugin := RequestContextWithCallerIDAndOptions(th.Context, "plugin-owner", model.PropertyRequestOptions{ActingAsScope: "entra"})
+		_, upErr = th.service.UpsertPropertyValue(rctxPlugin, newValue(fieldID))
+		require.NoError(t, upErr)
+	}
+
+	t.Run("SCIM-first then link SAML", func(t *testing.T) {
+		rctxOwner := RequestContextWithCallerID(th.Context, "plugin-owner")
+		created, err := th.service.CreatePropertyField(rctxOwner, ownerField(th.CPAGroupID, "ScimFirst", "plugin-owner", []string{"entra"}))
+		require.NoError(t, err)
+
+		created.Attrs[model.CustomProfileAttributesPropertyAttrsSAML] = "department"
+		updated, _, upErr := th.service.UpdatePropertyField(th.Context, th.CPAGroupID, created)
+		require.NoError(t, upErr)
+		require.Equal(t, "department", updated.Attrs[model.CustomProfileAttributesPropertyAttrsSAML])
+
+		assertCombinedWrites(t, created.ID)
+	})
+
+	t.Run("SAML-first then add plugin owner", func(t *testing.T) {
+		created, err := th.service.CreatePropertyField(th.Context, &model.PropertyField{
+			GroupID:    th.CPAGroupID,
+			Name:       "SamlFirst",
+			Type:       model.PropertyFieldTypeText,
+			ObjectType: model.PropertyFieldObjectTypeUser,
+			TargetType: string(model.PropertyFieldTargetLevelSystem),
+			Attrs: model.StringInterface{
+				model.CustomProfileAttributesPropertyAttrsSAML: "department",
+			},
+		})
+		require.NoError(t, err)
+		require.False(t, model.HasPropertyFieldOwners(created))
+
+		rctxOwner := RequestContextWithCallerID(th.Context, "plugin-owner")
+		created.Attrs[model.PropertyAttrsOwners] = []model.PropertyOwner{
+			{ID: "plugin-owner", Type: model.PropertyOwnerTypePlugin, Scopes: []string{"entra"}},
+		}
+		updated, _, upErr := th.service.UpdatePropertyField(rctxOwner, th.CPAGroupID, created)
+		require.NoError(t, upErr)
+		require.True(t, model.HasPropertyFieldOwners(updated))
+
+		assertCombinedWrites(t, created.ID)
 	})
 }

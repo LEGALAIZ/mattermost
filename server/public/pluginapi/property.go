@@ -186,7 +186,7 @@ func (p *PropertyService) DeletePropertyValuesForField(groupID, fieldID string) 
 // declaring the scope the plugin is acting as for owner-based access control.
 //
 // Minimum server version: 11.10
-func (p *PropertyService) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyWriteOptions) ([]*model.PropertyValue, error) {
+func (p *PropertyService) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyRequestOptions) ([]*model.PropertyValue, error) {
 	return p.api.UpsertPropertyValuesWithOptions(values, options)
 }
 
@@ -194,7 +194,7 @@ func (p *PropertyService) UpsertPropertyValuesWithOptions(values []*model.Proper
 // declaring the scope the plugin is acting as for owner-based access control.
 //
 // Minimum server version: 11.10
-func (p *PropertyService) UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyWriteOptions) (*model.PropertyValue, error) {
+func (p *PropertyService) UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyRequestOptions) (*model.PropertyValue, error) {
 	return p.api.UpsertPropertyValueWithOptions(value, options)
 }
 
@@ -202,7 +202,7 @@ func (p *PropertyService) UpsertPropertyValueWithOptions(value *model.PropertyVa
 // the plugin is acting as for owner-based access control.
 //
 // Minimum server version: 11.10
-func (p *PropertyService) DeletePropertyValueWithOptions(groupID, valueID string, options model.PropertyWriteOptions) error {
+func (p *PropertyService) DeletePropertyValueWithOptions(groupID, valueID string, options model.PropertyRequestOptions) error {
 	return p.api.DeletePropertyValueWithOptions(groupID, valueID, options)
 }
 
@@ -211,7 +211,7 @@ func (p *PropertyService) DeletePropertyValueWithOptions(groupID, valueID string
 // deprovisioning entrypoint and needs only the target, no value objects.
 //
 // Minimum server version: 11.10
-func (p *PropertyService) DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID string, options model.PropertyWriteOptions) error {
+func (p *PropertyService) DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID string, options model.PropertyRequestOptions) error {
 	return p.api.DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID, options)
 }
 
@@ -220,6 +220,6 @@ func (p *PropertyService) DeletePropertyValuesForTargetWithOptions(groupID, targ
 // control.
 //
 // Minimum server version: 11.10
-func (p *PropertyService) DeletePropertyValuesForFieldWithOptions(groupID, fieldID string, options model.PropertyWriteOptions) error {
+func (p *PropertyService) DeletePropertyValuesForFieldWithOptions(groupID, fieldID string, options model.PropertyRequestOptions) error {
 	return p.api.DeletePropertyValuesForFieldWithOptions(groupID, fieldID, options)
 }

@@ -51,13 +51,23 @@ func CallerIDFromContext(ctx context.Context) (string, bool) {
 	return "", false
 }
 
-// PropertyWriteOptions carries per-call write context for property value
-// writes made through the plugin API. It lets a plugin declare the scope it is
-// acting as so the server can check it against a field's owners.
-type PropertyWriteOptions struct {
+// PropertyRequestOptions carries caller-side declarations for property plugin
+// API calls. Values are applied to the request context alongside the caller ID
+// (e.g. matching ActingAsScope against a field's owners). Value data belongs on
+// PropertyValue; field configuration belongs on PropertyField.
+type PropertyRequestOptions struct {
 	// ActingAsScope is the owner-defined scope label the caller is acting as
 	// (e.g. "entra"). Empty means the caller is not acting as any scope.
 	ActingAsScope string
+}
+
+// WithPropertyRequestOptions applies the caller's per-call declarations onto
+// ctx so the server can read them alongside the caller ID.
+func WithPropertyRequestOptions(ctx context.Context, options PropertyRequestOptions) context.Context {
+	if options.ActingAsScope != "" {
+		ctx = WithActingAsScope(ctx, options.ActingAsScope)
+	}
+	return ctx
 }
 
 // WithActingAsScope adds the caller's acting-as scope to a context.Context for

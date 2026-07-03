@@ -3569,7 +3569,7 @@ func TestPluginAPIPropertyValueWithOptions(t *testing.T) {
 		return api, group, field
 	}
 
-	opts := model.PropertyWriteOptions{ActingAsScope: "entra"}
+	opts := model.PropertyRequestOptions{ActingAsScope: "entra"}
 
 	t.Run("UpsertPropertyValueWithOptions creates and reads back a value", func(t *testing.T) {
 		api, group, field := setup(t)

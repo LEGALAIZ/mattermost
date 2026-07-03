@@ -1034,7 +1034,7 @@ func (_m *API) DeletePropertyValue(groupID string, valueID string) error {
 }
 
 // DeletePropertyValueWithOptions provides a mock function with given fields: groupID, valueID, options
-func (_m *API) DeletePropertyValueWithOptions(groupID string, valueID string, options model.PropertyWriteOptions) error {
+func (_m *API) DeletePropertyValueWithOptions(groupID string, valueID string, options model.PropertyRequestOptions) error {
 	ret := _m.Called(groupID, valueID, options)
 
 	if len(ret) == 0 {
@@ -1042,7 +1042,7 @@ func (_m *API) DeletePropertyValueWithOptions(groupID string, valueID string, op
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, model.PropertyWriteOptions) error); ok {
+	if rf, ok := ret.Get(0).(func(string, string, model.PropertyRequestOptions) error); ok {
 		r0 = rf(groupID, valueID, options)
 	} else {
 		r0 = ret.Error(0)
@@ -1070,7 +1070,7 @@ func (_m *API) DeletePropertyValuesForField(groupID string, fieldID string) erro
 }
 
 // DeletePropertyValuesForFieldWithOptions provides a mock function with given fields: groupID, fieldID, options
-func (_m *API) DeletePropertyValuesForFieldWithOptions(groupID string, fieldID string, options model.PropertyWriteOptions) error {
+func (_m *API) DeletePropertyValuesForFieldWithOptions(groupID string, fieldID string, options model.PropertyRequestOptions) error {
 	ret := _m.Called(groupID, fieldID, options)
 
 	if len(ret) == 0 {
@@ -1078,7 +1078,7 @@ func (_m *API) DeletePropertyValuesForFieldWithOptions(groupID string, fieldID s
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, model.PropertyWriteOptions) error); ok {
+	if rf, ok := ret.Get(0).(func(string, string, model.PropertyRequestOptions) error); ok {
 		r0 = rf(groupID, fieldID, options)
 	} else {
 		r0 = ret.Error(0)
@@ -1106,7 +1106,7 @@ func (_m *API) DeletePropertyValuesForTarget(groupID string, targetType string, 
 }
 
 // DeletePropertyValuesForTargetWithOptions provides a mock function with given fields: groupID, targetType, targetID, options
-func (_m *API) DeletePropertyValuesForTargetWithOptions(groupID string, targetType string, targetID string, options model.PropertyWriteOptions) error {
+func (_m *API) DeletePropertyValuesForTargetWithOptions(groupID string, targetType string, targetID string, options model.PropertyRequestOptions) error {
 	ret := _m.Called(groupID, targetType, targetID, options)
 
 	if len(ret) == 0 {
@@ -1114,7 +1114,7 @@ func (_m *API) DeletePropertyValuesForTargetWithOptions(groupID string, targetTy
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, string, model.PropertyWriteOptions) error); ok {
+	if rf, ok := ret.Get(0).(func(string, string, string, model.PropertyRequestOptions) error); ok {
 		r0 = rf(groupID, targetType, targetID, options)
 	} else {
 		r0 = ret.Error(0)
@@ -6578,7 +6578,7 @@ func (_m *API) UpsertPropertyValue(value *model.PropertyValue) (*model.PropertyV
 }
 
 // UpsertPropertyValueWithOptions provides a mock function with given fields: value, options
-func (_m *API) UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyWriteOptions) (*model.PropertyValue, error) {
+func (_m *API) UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyRequestOptions) (*model.PropertyValue, error) {
 	ret := _m.Called(value, options)
 
 	if len(ret) == 0 {
@@ -6587,10 +6587,10 @@ func (_m *API) UpsertPropertyValueWithOptions(value *model.PropertyValue, option
 
 	var r0 *model.PropertyValue
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*model.PropertyValue, model.PropertyWriteOptions) (*model.PropertyValue, error)); ok {
+	if rf, ok := ret.Get(0).(func(*model.PropertyValue, model.PropertyRequestOptions) (*model.PropertyValue, error)); ok {
 		return rf(value, options)
 	}
-	if rf, ok := ret.Get(0).(func(*model.PropertyValue, model.PropertyWriteOptions) *model.PropertyValue); ok {
+	if rf, ok := ret.Get(0).(func(*model.PropertyValue, model.PropertyRequestOptions) *model.PropertyValue); ok {
 		r0 = rf(value, options)
 	} else {
 		if ret.Get(0) != nil {
@@ -6598,7 +6598,7 @@ func (_m *API) UpsertPropertyValueWithOptions(value *model.PropertyValue, option
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*model.PropertyValue, model.PropertyWriteOptions) error); ok {
+	if rf, ok := ret.Get(1).(func(*model.PropertyValue, model.PropertyRequestOptions) error); ok {
 		r1 = rf(value, options)
 	} else {
 		r1 = ret.Error(1)
@@ -6638,7 +6638,7 @@ func (_m *API) UpsertPropertyValues(values []*model.PropertyValue) ([]*model.Pro
 }
 
 // UpsertPropertyValuesWithOptions provides a mock function with given fields: values, options
-func (_m *API) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyWriteOptions) ([]*model.PropertyValue, error) {
+func (_m *API) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyRequestOptions) ([]*model.PropertyValue, error) {
 	ret := _m.Called(values, options)
 
 	if len(ret) == 0 {
@@ -6647,10 +6647,10 @@ func (_m *API) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, op
 
 	var r0 []*model.PropertyValue
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]*model.PropertyValue, model.PropertyWriteOptions) ([]*model.PropertyValue, error)); ok {
+	if rf, ok := ret.Get(0).(func([]*model.PropertyValue, model.PropertyRequestOptions) ([]*model.PropertyValue, error)); ok {
 		return rf(values, options)
 	}
-	if rf, ok := ret.Get(0).(func([]*model.PropertyValue, model.PropertyWriteOptions) []*model.PropertyValue); ok {
+	if rf, ok := ret.Get(0).(func([]*model.PropertyValue, model.PropertyRequestOptions) []*model.PropertyValue); ok {
 		r0 = rf(values, options)
 	} else {
 		if ret.Get(0) != nil {
@@ -6658,7 +6658,7 @@ func (_m *API) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, op
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]*model.PropertyValue, model.PropertyWriteOptions) error); ok {
+	if rf, ok := ret.Get(1).(func([]*model.PropertyValue, model.PropertyRequestOptions) error); ok {
 		r1 = rf(values, options)
 	} else {
 		r1 = ret.Error(1)

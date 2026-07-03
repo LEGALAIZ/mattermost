@@ -9139,7 +9139,7 @@ func (s *apiRPCServer) DeletePropertyValuesForField(args *Z_DeletePropertyValues
 
 type Z_UpsertPropertyValuesWithOptionsArgs struct {
 	A []*model.PropertyValue
-	B model.PropertyWriteOptions
+	B model.PropertyRequestOptions
 }
 
 type Z_UpsertPropertyValuesWithOptionsReturns struct {
@@ -9147,7 +9147,7 @@ type Z_UpsertPropertyValuesWithOptionsReturns struct {
 	B error
 }
 
-func (g *apiRPCClient) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyWriteOptions) ([]*model.PropertyValue, error) {
+func (g *apiRPCClient) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyRequestOptions) ([]*model.PropertyValue, error) {
 	_args := &Z_UpsertPropertyValuesWithOptionsArgs{values, options}
 	_returns := &Z_UpsertPropertyValuesWithOptionsReturns{}
 	if err := g.client.Call("Plugin.UpsertPropertyValuesWithOptions", _args, _returns); err != nil {
@@ -9158,7 +9158,7 @@ func (g *apiRPCClient) UpsertPropertyValuesWithOptions(values []*model.PropertyV
 
 func (s *apiRPCServer) UpsertPropertyValuesWithOptions(args *Z_UpsertPropertyValuesWithOptionsArgs, returns *Z_UpsertPropertyValuesWithOptionsReturns) error {
 	if hook, ok := s.impl.(interface {
-		UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyWriteOptions) ([]*model.PropertyValue, error)
+		UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyRequestOptions) ([]*model.PropertyValue, error)
 	}); ok {
 		returns.A, returns.B = hook.UpsertPropertyValuesWithOptions(args.A, args.B)
 		returns.B = encodableError(returns.B)
@@ -9170,7 +9170,7 @@ func (s *apiRPCServer) UpsertPropertyValuesWithOptions(args *Z_UpsertPropertyVal
 
 type Z_UpsertPropertyValueWithOptionsArgs struct {
 	A *model.PropertyValue
-	B model.PropertyWriteOptions
+	B model.PropertyRequestOptions
 }
 
 type Z_UpsertPropertyValueWithOptionsReturns struct {
@@ -9178,7 +9178,7 @@ type Z_UpsertPropertyValueWithOptionsReturns struct {
 	B error
 }
 
-func (g *apiRPCClient) UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyWriteOptions) (*model.PropertyValue, error) {
+func (g *apiRPCClient) UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyRequestOptions) (*model.PropertyValue, error) {
 	_args := &Z_UpsertPropertyValueWithOptionsArgs{value, options}
 	_returns := &Z_UpsertPropertyValueWithOptionsReturns{}
 	if err := g.client.Call("Plugin.UpsertPropertyValueWithOptions", _args, _returns); err != nil {
@@ -9189,7 +9189,7 @@ func (g *apiRPCClient) UpsertPropertyValueWithOptions(value *model.PropertyValue
 
 func (s *apiRPCServer) UpsertPropertyValueWithOptions(args *Z_UpsertPropertyValueWithOptionsArgs, returns *Z_UpsertPropertyValueWithOptionsReturns) error {
 	if hook, ok := s.impl.(interface {
-		UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyWriteOptions) (*model.PropertyValue, error)
+		UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyRequestOptions) (*model.PropertyValue, error)
 	}); ok {
 		returns.A, returns.B = hook.UpsertPropertyValueWithOptions(args.A, args.B)
 		returns.B = encodableError(returns.B)
@@ -9202,14 +9202,14 @@ func (s *apiRPCServer) UpsertPropertyValueWithOptions(args *Z_UpsertPropertyValu
 type Z_DeletePropertyValueWithOptionsArgs struct {
 	A string
 	B string
-	C model.PropertyWriteOptions
+	C model.PropertyRequestOptions
 }
 
 type Z_DeletePropertyValueWithOptionsReturns struct {
 	A error
 }
 
-func (g *apiRPCClient) DeletePropertyValueWithOptions(groupID, valueID string, options model.PropertyWriteOptions) error {
+func (g *apiRPCClient) DeletePropertyValueWithOptions(groupID, valueID string, options model.PropertyRequestOptions) error {
 	_args := &Z_DeletePropertyValueWithOptionsArgs{groupID, valueID, options}
 	_returns := &Z_DeletePropertyValueWithOptionsReturns{}
 	if err := g.client.Call("Plugin.DeletePropertyValueWithOptions", _args, _returns); err != nil {
@@ -9220,7 +9220,7 @@ func (g *apiRPCClient) DeletePropertyValueWithOptions(groupID, valueID string, o
 
 func (s *apiRPCServer) DeletePropertyValueWithOptions(args *Z_DeletePropertyValueWithOptionsArgs, returns *Z_DeletePropertyValueWithOptionsReturns) error {
 	if hook, ok := s.impl.(interface {
-		DeletePropertyValueWithOptions(groupID, valueID string, options model.PropertyWriteOptions) error
+		DeletePropertyValueWithOptions(groupID, valueID string, options model.PropertyRequestOptions) error
 	}); ok {
 		returns.A = hook.DeletePropertyValueWithOptions(args.A, args.B, args.C)
 		returns.A = encodableError(returns.A)
@@ -9234,14 +9234,14 @@ type Z_DeletePropertyValuesForTargetWithOptionsArgs struct {
 	A string
 	B string
 	C string
-	D model.PropertyWriteOptions
+	D model.PropertyRequestOptions
 }
 
 type Z_DeletePropertyValuesForTargetWithOptionsReturns struct {
 	A error
 }
 
-func (g *apiRPCClient) DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID string, options model.PropertyWriteOptions) error {
+func (g *apiRPCClient) DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID string, options model.PropertyRequestOptions) error {
 	_args := &Z_DeletePropertyValuesForTargetWithOptionsArgs{groupID, targetType, targetID, options}
 	_returns := &Z_DeletePropertyValuesForTargetWithOptionsReturns{}
 	if err := g.client.Call("Plugin.DeletePropertyValuesForTargetWithOptions", _args, _returns); err != nil {
@@ -9252,7 +9252,7 @@ func (g *apiRPCClient) DeletePropertyValuesForTargetWithOptions(groupID, targetT
 
 func (s *apiRPCServer) DeletePropertyValuesForTargetWithOptions(args *Z_DeletePropertyValuesForTargetWithOptionsArgs, returns *Z_DeletePropertyValuesForTargetWithOptionsReturns) error {
 	if hook, ok := s.impl.(interface {
-		DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID string, options model.PropertyWriteOptions) error
+		DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID string, options model.PropertyRequestOptions) error
 	}); ok {
 		returns.A = hook.DeletePropertyValuesForTargetWithOptions(args.A, args.B, args.C, args.D)
 		returns.A = encodableError(returns.A)
@@ -9265,14 +9265,14 @@ func (s *apiRPCServer) DeletePropertyValuesForTargetWithOptions(args *Z_DeletePr
 type Z_DeletePropertyValuesForFieldWithOptionsArgs struct {
 	A string
 	B string
-	C model.PropertyWriteOptions
+	C model.PropertyRequestOptions
 }
 
 type Z_DeletePropertyValuesForFieldWithOptionsReturns struct {
 	A error
 }
 
-func (g *apiRPCClient) DeletePropertyValuesForFieldWithOptions(groupID, fieldID string, options model.PropertyWriteOptions) error {
+func (g *apiRPCClient) DeletePropertyValuesForFieldWithOptions(groupID, fieldID string, options model.PropertyRequestOptions) error {
 	_args := &Z_DeletePropertyValuesForFieldWithOptionsArgs{groupID, fieldID, options}
 	_returns := &Z_DeletePropertyValuesForFieldWithOptionsReturns{}
 	if err := g.client.Call("Plugin.DeletePropertyValuesForFieldWithOptions", _args, _returns); err != nil {
@@ -9283,7 +9283,7 @@ func (g *apiRPCClient) DeletePropertyValuesForFieldWithOptions(groupID, fieldID 
 
 func (s *apiRPCServer) DeletePropertyValuesForFieldWithOptions(args *Z_DeletePropertyValuesForFieldWithOptionsArgs, returns *Z_DeletePropertyValuesForFieldWithOptionsReturns) error {
 	if hook, ok := s.impl.(interface {
-		DeletePropertyValuesForFieldWithOptions(groupID, fieldID string, options model.PropertyWriteOptions) error
+		DeletePropertyValuesForFieldWithOptions(groupID, fieldID string, options model.PropertyRequestOptions) error
 	}); ok {
 		returns.A = hook.DeletePropertyValuesForFieldWithOptions(args.A, args.B, args.C)
 		returns.A = encodableError(returns.A)

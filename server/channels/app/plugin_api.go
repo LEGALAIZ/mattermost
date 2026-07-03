@@ -1591,11 +1591,11 @@ func (api *PluginAPI) psaPluginContext() request.CTX {
 	return RequestContextWithCallerID(api.ctx, api.manifest.Id)
 }
 
-// psaPluginContextWithScope is psaPluginContext plus the plugin's declared
-// acting-as scope, used by the *WithOptions value write methods so owner-based
+// psaPluginContextWithOptions is psaPluginContext plus the plugin's per-call
+// declarations, used by the *WithOptions value write methods so owner-based
 // access control can match the scope against a field's owners list.
-func (api *PluginAPI) psaPluginContextWithScope(scope string) request.CTX {
-	return RequestContextWithCallerIDAndScope(api.ctx, api.manifest.Id, scope)
+func (api *PluginAPI) psaPluginContextWithOptions(options model.PropertyRequestOptions) request.CTX {
+	return RequestContextWithCallerIDAndOptions(api.ctx, api.manifest.Id, options)
 }
 
 func (api *PluginAPI) CreatePropertyField(field *model.PropertyField) (*model.PropertyField, error) {
@@ -1795,38 +1795,38 @@ func (api *PluginAPI) DeletePropertyValuesForField(groupID, fieldID string) erro
 	return nil
 }
 
-func (api *PluginAPI) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyWriteOptions) ([]*model.PropertyValue, error) {
-	upsertedValues, appErr := api.app.UpsertPropertyValues(api.psaPluginContextWithScope(options.ActingAsScope), values, "", "", "")
+func (api *PluginAPI) UpsertPropertyValuesWithOptions(values []*model.PropertyValue, options model.PropertyRequestOptions) ([]*model.PropertyValue, error) {
+	upsertedValues, appErr := api.app.UpsertPropertyValues(api.psaPluginContextWithOptions(options), values, "", "", "")
 	if appErr != nil {
 		return nil, appErr
 	}
 	return upsertedValues, nil
 }
 
-func (api *PluginAPI) UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyWriteOptions) (*model.PropertyValue, error) {
-	upsertedValue, appErr := api.app.UpsertPropertyValue(api.psaPluginContextWithScope(options.ActingAsScope), value)
+func (api *PluginAPI) UpsertPropertyValueWithOptions(value *model.PropertyValue, options model.PropertyRequestOptions) (*model.PropertyValue, error) {
+	upsertedValue, appErr := api.app.UpsertPropertyValue(api.psaPluginContextWithOptions(options), value)
 	if appErr != nil {
 		return nil, appErr
 	}
 	return upsertedValue, nil
 }
 
-func (api *PluginAPI) DeletePropertyValueWithOptions(groupID, valueID string, options model.PropertyWriteOptions) error {
-	if appErr := api.app.DeletePropertyValue(api.psaPluginContextWithScope(options.ActingAsScope), groupID, valueID); appErr != nil {
+func (api *PluginAPI) DeletePropertyValueWithOptions(groupID, valueID string, options model.PropertyRequestOptions) error {
+	if appErr := api.app.DeletePropertyValue(api.psaPluginContextWithOptions(options), groupID, valueID); appErr != nil {
 		return appErr
 	}
 	return nil
 }
 
-func (api *PluginAPI) DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID string, options model.PropertyWriteOptions) error {
-	if appErr := api.app.DeletePropertyValuesForTarget(api.psaPluginContextWithScope(options.ActingAsScope), groupID, targetType, targetID); appErr != nil {
+func (api *PluginAPI) DeletePropertyValuesForTargetWithOptions(groupID, targetType, targetID string, options model.PropertyRequestOptions) error {
+	if appErr := api.app.DeletePropertyValuesForTarget(api.psaPluginContextWithOptions(options), groupID, targetType, targetID); appErr != nil {
 		return appErr
 	}
 	return nil
 }
 
-func (api *PluginAPI) DeletePropertyValuesForFieldWithOptions(groupID, fieldID string, options model.PropertyWriteOptions) error {
-	if appErr := api.app.DeletePropertyValuesForField(api.psaPluginContextWithScope(options.ActingAsScope), groupID, fieldID); appErr != nil {
+func (api *PluginAPI) DeletePropertyValuesForFieldWithOptions(groupID, fieldID string, options model.PropertyRequestOptions) error {
+	if appErr := api.app.DeletePropertyValuesForField(api.psaPluginContextWithOptions(options), groupID, fieldID); appErr != nil {
 		return appErr
 	}
 	return nil

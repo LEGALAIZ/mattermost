@@ -1735,6 +1735,26 @@ func TestAccessControlAttributeValidationHook_Owners(t *testing.T) {
 		assert.Contains(t, createErr.Error(), "managed=admin")
 	})
 
+	t.Run("allows owners combined with saml sync attr", func(t *testing.T) {
+		field := &model.PropertyField{
+			GroupID:    group.ID,
+			Name:       "field_" + model.NewId(),
+			Type:       model.PropertyFieldTypeText,
+			TargetType: "system",
+			ObjectType: "user",
+			Attrs: model.StringInterface{
+				model.CustomProfileAttributesPropertyAttrsSAML: "department",
+				model.PropertyAttrsOwners: []model.PropertyOwner{
+					{ID: "com.mattermost.scim", Type: model.PropertyOwnerTypePlugin, Scopes: []string{"entra", "okta"}},
+				},
+			},
+		}
+		created, createErr := th.service.CreatePropertyField(th.Context, field)
+		require.NoError(t, createErr)
+		assert.Equal(t, "department", created.Attrs[model.CustomProfileAttributesPropertyAttrsSAML])
+		require.True(t, model.HasPropertyFieldOwners(created))
+	})
+
 	t.Run("pins permission_values to sysadmin for owner-managed fields", func(t *testing.T) {
 		field := &model.PropertyField{
 			GroupID:    group.ID,
