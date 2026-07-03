@@ -853,6 +853,8 @@ type UserAccessTokenStore interface {
 	GetByUser(userID string, page, perPage int) ([]*model.UserAccessToken, error)
 	GetExpiredBefore(cutoff int64, limit int) ([]*model.UserAccessToken, error)
 	GetExpiringTokens(now int64, thresholds []int, limit int) ([]*model.UserAccessToken, error)
+	CountNonCompliantExpiry(maxExpiresAt int64) (int64, error)
+	DeleteNonCompliantExpiry(maxExpiresAt int64, limit int) ([]string, error)
 	Search(term string) ([]*model.UserAccessToken, error)
 	UpdateTokenEnable(tokenID string) error
 	UpdateTokenDisable(tokenID string) error
