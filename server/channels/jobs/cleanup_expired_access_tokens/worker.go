@@ -35,7 +35,15 @@ type expiredTokenStore interface {
 //
 // clearSessionCache is called for each affected user after their tokens are
 // deleted so that in-memory session caches don't serve stale sessions.
-func MakeWorker(jobServer *jobs.JobServer, clearSessionCache func(userID string)) *jobs.SimpleWorker {
+//
+// notifyExpired is called with each batch of expired tokens immediately before
+// they are deleted, so the owner can be DMed that their token has been removed.
+// It is best-effort: any failure is handled internally and must not block the
+// cleanup. Note that after this change PAT expiry notifications come from two
+// jobs — the pre-expiry warning cascade (pat_expiry_notify) and this
+// at-deletion notice — so a future reader shouldn't be surprised to find an
+// expiry DM originating from the cleanup job.
+func MakeWorker(jobServer *jobs.JobServer, clearSessionCache func(userID string), notifyExpired func(tokens []*model.UserAccessToken)) *jobs.SimpleWorker {
 	isEnabled := func(cfg *model.Config) bool {
 		return *cfg.ServiceSettings.EnableUserAccessTokens
 	}
@@ -46,6 +54,7 @@ func MakeWorker(jobServer *jobs.JobServer, clearSessionCache func(userID string)
 			logger,
 			jobServer.Store.UserAccessToken(),
 			clearSessionCache,
+			notifyExpired,
 			model.GetMillis(),
 			batchLimit,
 			maxBatches,
@@ -61,10 +70,17 @@ func MakeWorker(jobServer *jobs.JobServer, clearSessionCache func(userID string)
 //
 // clearSessionCache is called for each unique user whose tokens were deleted so
 // that in-memory session caches don't continue serving the removed sessions.
+//
+// notifyExpired is called with each batch immediately before deletion so token
+// owners can be notified. It runs best-effort: it is invoked before the delete
+// so the token→owner mapping is still available, and the delete proceeds
+// regardless of what it does. The worst case (a crash between notify and
+// delete) is a single duplicate DM on the next run, which is acceptable.
 func cleanupExpired(
 	logger mlog.LoggerIFace,
 	store expiredTokenStore,
 	clearSessionCache func(userID string),
+	notifyExpired func(tokens []*model.UserAccessToken),
 	cutoff int64,
 	limit int,
 	maxIter int,
@@ -85,6 +101,12 @@ func cleanupExpired(
 		for i, token := range expired {
 			ids[i] = token.Id
 			userIDs[token.UserId] = struct{}{}
+		}
+
+		// Notify owners before deleting: the token still carries its UserId
+		// here, and deletion right after makes re-notification impossible.
+		if notifyExpired != nil {
+			notifyExpired(expired)
 		}
 
 		deleted, err := store.DeleteByIds(ids)
