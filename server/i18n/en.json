@@ -7906,11 +7906,11 @@
   },
   {
     "id": "app.pat_expiry_notify.dm",
-    "translation": "Your personal access token \"{{.Description}}\" will expire in {{.Days}} days or less. Open **Profile > Security** to create a new token before this one stops working."
+    "translation": "Your personal access token \"{{.Description}}\" will expire in {{.Days}} days or less. Open **Profile > Security** to regenerate it before it stops working."
   },
   {
     "id": "app.pat_expiry_notify.dm_final",
-    "translation": "Your personal access token \"{{.Description}}\" will expire within 24 hours. Open **Profile > Security** to create a new token before this one stops working."
+    "translation": "Your personal access token \"{{.Description}}\" will expire within 24 hours. Open **Profile > Security** to regenerate it before it stops working."
   },
   {
     "id": "app.pat_expiry_notify.unnamed_token",

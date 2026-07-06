@@ -84,6 +84,7 @@ func TestNotifyPersonalAccessTokensExpiring(t *testing.T) {
 		require.Len(t, messages, 1, "owner should get exactly one warning")
 		require.Contains(t, messages[0], "deploy bot", "warning should name the token")
 		require.Contains(t, messages[0], "7 days or less", "5-day token is in the 7-day bucket")
+		require.Contains(t, messages[0], "regenerate", "warning should tell the owner to regenerate the token")
 		require.NotContains(t, messages[0], "day(s)", "message must not use the awkward day(s) plural")
 
 		stored, err := th.App.Srv().Store().UserAccessToken().Get(token.Id)
