@@ -2928,6 +2928,7 @@ func (a *App) applyPostWillBeConsumedHook(rctx request.CTX, post **model.Post) {
 		}
 		*post = replacements[0]
 		(*post).Metadata = metadata
+		ps = []*model.Post{(*post).ForPlugin()}
 	}
 
 	a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
