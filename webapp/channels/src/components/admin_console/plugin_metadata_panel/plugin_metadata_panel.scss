@@ -15,27 +15,12 @@
         }
     }
 
-    &__idWrapper {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        vertical-align: baseline;
-    }
-
     &__id {
         font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
-    }
+        cursor: pointer;
 
-    &__copy.post-code__clipboard {
-        position: relative;
-        top: 1px;
-        width: 18px;
-        height: 18px;
-
-        > i {
-            margin-top: 0;
-            margin-left: 0;
-            font-size: 14px;
+        &:hover {
+            color: var(--link-color);
         }
     }
 }

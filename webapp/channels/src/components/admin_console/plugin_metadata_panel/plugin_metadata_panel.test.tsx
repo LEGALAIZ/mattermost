@@ -32,7 +32,7 @@ describe('PluginMetadataPanel', () => {
         expect(screen.getByTestId('plugin-metadata-panel')).toHaveTextContent('FL3XX (com.mattermost.fl3xx - v0.7.4)');
         expect(screen.getByTestId('plugin-metadata-id')).toHaveTextContent('com.mattermost.fl3xx');
         expect(screen.getByTestId('plugin-metadata-version')).toHaveTextContent('v0.7.4');
-        expect(screen.getByRole('button', {name: 'Copy text'})).toBeInTheDocument();
+        expect(screen.getByRole('button', {name: 'Copy text'})).toHaveTextContent('com.mattermost.fl3xx');
     });
 
     test('should fall back to plugin id when display name is missing', () => {
