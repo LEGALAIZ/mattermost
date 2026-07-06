@@ -88,8 +88,8 @@ func (ps *PlatformService) GenerateSupportPacket(rctx request.CTX, options *mode
 	}
 
 	cpuProfileDur := cpuProfileDuration
-	if options != nil && options.CPUProfileDurationSeconds != nil {
-		cpuProfileDur = time.Duration(*options.CPUProfileDurationSeconds) * time.Second
+	if options != nil && options.CPUProfileDuration != nil {
+		cpuProfileDur = *options.CPUProfileDuration
 	}
 	if cpuProfileDur > 0 {
 		functions["cpu profile"] = func(rctx request.CTX) (*model.FileData, error) {
