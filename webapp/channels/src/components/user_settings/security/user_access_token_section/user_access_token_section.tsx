@@ -679,14 +679,14 @@ class UserAccessTokenSection extends React.PureComponent<Props, State> {
                 const expiryError = this.getExpiryValidationError(preset, customDate);
 
                 return (
-                    <div className='alert alert-danger'>
-                        <p>
+                    <div>
+                        <div className='alert alert-danger'>
                             <FormattedMessage
                                 id='user.settings.tokens.confirmRegenerate.description'
                                 defaultMessage={'The current secret for this token will stop working immediately. Any integrations using it will need to be updated with the new secret. You cannot undo this action.'}
                             />
-                        </p>
-                        <p>
+                        </div>
+                        <p className='pt-3'>
                             <FormattedMessage
                                 id='user.settings.tokens.confirmRegenerate.confirmation'
                                 defaultMessage={'Are you sure you want to regenerate the <b>{description}</b> token?'}
