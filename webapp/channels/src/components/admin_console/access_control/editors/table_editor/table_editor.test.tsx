@@ -57,6 +57,7 @@ describe('parseExpression', () => {
         expect(parseExpression(ast)).toEqual([
             {
                 attribute: 'clearance',
+                attribute_object_type: 'user',
                 operator: label,
                 values: ['Secret'],
                 attribute_type: 'rank',

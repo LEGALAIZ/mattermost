@@ -111,6 +111,15 @@ describe('components/admin_console/permission_policies/policy_details/Permission
         mockFetchPolicy.mockReset();
         mockGetAccessControlFields.mockReset();
 
+        mockFetchPolicy.mockResolvedValue({
+            data: {
+                id: 'policy1',
+                name: 'Policy 1',
+                roles: ['system_user'],
+                rules: [],
+            },
+        });
+
         mockUseEnabledSessionAttributeFields.mockReturnValue([makeSessionField('s1', 'network_name')]);
         mockUseChannelAccessControlActions.mockReturnValue({
             getAccessControlFields: mockGetAccessControlFields,
