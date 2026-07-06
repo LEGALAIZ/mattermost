@@ -23,12 +23,10 @@ import (
 // swallowed so it never blocks the cleanup. Bot-owned tokens and tokens owned
 // by deactivated users are skipped, matching pat_expiry_notify — GetExpiredBefore
 // returns those too because the cleanup job must still delete them.
-func (a *App) NotifyExpiredAccessTokensDeleted(tokens []*model.UserAccessToken) {
+func (a *App) NotifyExpiredAccessTokensDeleted(rctx request.CTX, tokens []*model.UserAccessToken) {
 	if len(tokens) == 0 {
 		return
 	}
-
-	rctx := request.EmptyContext(a.Log())
 
 	systemBot, appErr := a.GetSystemBot(rctx)
 	if appErr != nil {

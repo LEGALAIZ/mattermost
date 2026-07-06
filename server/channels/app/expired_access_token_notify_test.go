@@ -55,8 +55,8 @@ func TestNotifyExpiredAccessTokensDeleted(t *testing.T) {
 		th := Setup(t).InitBasic(t)
 
 		require.NotPanics(t, func() {
-			th.App.NotifyExpiredAccessTokensDeleted(nil)
-			th.App.NotifyExpiredAccessTokensDeleted([]*model.UserAccessToken{})
+			th.App.NotifyExpiredAccessTokensDeleted(th.Context, nil)
+			th.App.NotifyExpiredAccessTokensDeleted(th.Context, []*model.UserAccessToken{})
 		})
 	})
 
@@ -69,7 +69,7 @@ func TestNotifyExpiredAccessTokensDeleted(t *testing.T) {
 		user := th.CreateUser(t)
 		const description = "ci-integration-token"
 
-		th.App.NotifyExpiredAccessTokensDeleted([]*model.UserAccessToken{
+		th.App.NotifyExpiredAccessTokensDeleted(th.Context, []*model.UserAccessToken{
 			{Id: model.NewId(), UserId: user.Id, Description: description},
 		})
 
@@ -86,7 +86,7 @@ func TestNotifyExpiredAccessTokensDeleted(t *testing.T) {
 
 		bot := th.CreateBot(t)
 
-		th.App.NotifyExpiredAccessTokensDeleted([]*model.UserAccessToken{
+		th.App.NotifyExpiredAccessTokensDeleted(th.Context, []*model.UserAccessToken{
 			{Id: model.NewId(), UserId: bot.UserId, Description: "bot-token"},
 		})
 
@@ -103,7 +103,7 @@ func TestNotifyExpiredAccessTokensDeleted(t *testing.T) {
 		_, appErr = th.App.UpdateActive(th.Context, user, false)
 		require.Nil(t, appErr)
 
-		th.App.NotifyExpiredAccessTokensDeleted([]*model.UserAccessToken{
+		th.App.NotifyExpiredAccessTokensDeleted(th.Context, []*model.UserAccessToken{
 			{Id: model.NewId(), UserId: user.Id, Description: "deactivated-token"},
 		})
 
@@ -120,7 +120,7 @@ func TestNotifyExpiredAccessTokensDeleted(t *testing.T) {
 
 		// First token references a user that does not exist (GetUser fails);
 		// the second is a valid active user that must still be notified.
-		th.App.NotifyExpiredAccessTokensDeleted([]*model.UserAccessToken{
+		th.App.NotifyExpiredAccessTokensDeleted(th.Context, []*model.UserAccessToken{
 			{Id: model.NewId(), UserId: model.NewId(), Description: "orphan-token"},
 			{Id: model.NewId(), UserId: user.Id, Description: "valid-token"},
 		})

@@ -6,6 +6,7 @@ package cleanup_expired_access_tokens
 import (
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/shared/mlog"
+	"github.com/mattermost/mattermost/server/public/shared/request"
 	"github.com/mattermost/mattermost/server/v8/channels/jobs"
 )
 
@@ -43,7 +44,7 @@ type expiredTokenStore interface {
 // jobs — the pre-expiry warning cascade (pat_expiry_notify) and this
 // at-deletion notice — so a future reader shouldn't be surprised to find an
 // expiry DM originating from the cleanup job.
-func MakeWorker(jobServer *jobs.JobServer, clearSessionCache func(userID string), notifyExpired func(tokens []*model.UserAccessToken)) *jobs.SimpleWorker {
+func MakeWorker(jobServer *jobs.JobServer, clearSessionCache func(userID string), notifyExpired func(rctx request.CTX, tokens []*model.UserAccessToken)) *jobs.SimpleWorker {
 	isEnabled := func(cfg *model.Config) bool {
 		return *cfg.ServiceSettings.EnableUserAccessTokens
 	}
@@ -51,7 +52,7 @@ func MakeWorker(jobServer *jobs.JobServer, clearSessionCache func(userID string)
 	execute := func(logger mlog.LoggerIFace, job *model.Job) error {
 		defer jobServer.HandleJobPanic(logger, job)
 		return cleanupExpired(
-			logger,
+			request.EmptyContext(logger),
 			jobServer.Store.UserAccessToken(),
 			clearSessionCache,
 			notifyExpired,
@@ -75,12 +76,13 @@ func MakeWorker(jobServer *jobs.JobServer, clearSessionCache func(userID string)
 // owners can be notified. It runs best-effort: it is invoked before the delete
 // so the token→owner mapping is still available, and the delete proceeds
 // regardless of what it does. The worst case (a crash between notify and
-// delete) is a single duplicate DM on the next run, which is acceptable.
+// delete) is a single duplicate DM on the next run, which is acceptable. The
+// request context is passed through so the notifier logs under the job's logger.
 func cleanupExpired(
-	logger mlog.LoggerIFace,
+	rctx request.CTX,
 	store expiredTokenStore,
 	clearSessionCache func(userID string),
-	notifyExpired func(tokens []*model.UserAccessToken),
+	notifyExpired func(rctx request.CTX, tokens []*model.UserAccessToken),
 	cutoff int64,
 	limit int,
 	maxIter int,
@@ -104,7 +106,7 @@ func cleanupExpired(
 		}
 
 		if notifyExpired != nil {
-			notifyExpired(expired)
+			notifyExpired(rctx, expired)
 		}
 
 		deleted, err := store.DeleteByIds(ids)
@@ -122,7 +124,7 @@ func cleanupExpired(
 		}
 	}
 
-	logger.Info(
+	rctx.Logger().Info(
 		"Cleaned up expired personal access tokens",
 		mlog.Int("deleted", int(totalDeleted)),
 		mlog.Int("cutoff", int(cutoff)),
