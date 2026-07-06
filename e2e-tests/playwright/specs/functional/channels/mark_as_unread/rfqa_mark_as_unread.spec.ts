@@ -79,7 +79,7 @@ test('MM-T248 Mark Direct Message post as Unread', {tag: '@rfqa'}, async ({pw}) 
 });
 
 /**
- * @objective Verify a thread post can be marked unread from the RHS without adding a separator inside the RHS.
+ * @objective Verify a thread post can be marked unread from the RHS.
  */
 test('MM-T250 Mark as unread in the RHS', {tag: '@rfqa'}, async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
@@ -99,9 +99,9 @@ test('MM-T250 Mark as unread in the RHS', {tag: '@rfqa'}, async ({pw}) => {
     await (await channelsPage.centerView.getPostById(root.id)).reply();
     await markPostAsUnreadFromMenu(channelsPage, root.id, true);
 
-    // * Verify the center channel shows the unread separator and RHS does not
+    // * Verify both the center channel and RHS show the unread separator
     await expectUnreadSeparator(channelsPage, 'post1');
-    await expect(channelsPage.sidebarRight.container.locator('.NotificationSeparator')).toHaveCount(0);
+    await expect(channelsPage.sidebarRight.container.locator('.NotificationSeparator')).toBeVisible();
 
     // # Switch away and back
     await channelsPage.sidebarLeft.goToItem(channelB.name);

@@ -80,8 +80,19 @@ export async function openPostDotMenu(channelsPage: ChannelsPage, postId: string
 }
 
 export async function markPostAsUnreadFromMenu(channelsPage: ChannelsPage, postId: string, rhs = false) {
-    await openPostDotMenu(channelsPage, postId, rhs);
-    await channelsPage.page.getByRole('menuitem', {name: /Mark as Unread/i}).click();
+    const post = rhs
+        ? await channelsPage.sidebarRight.getPostById(postId)
+        : await channelsPage.centerView.getPostById(postId);
+
+    await post.toBeVisible();
+    await post.container.scrollIntoViewIfNeeded();
+    await expect(async () => {
+        await channelsPage.page.keyboard.press('Escape');
+        await post.hover();
+        await post.postMenu.toBeVisible();
+        await post.postMenu.openDotMenu();
+        await channelsPage.page.getByRole('menuitem', {name: /Mark as Unread/i}).click();
+    }).toPass();
 }
 
 export async function expectUnreadSeparator(channelsPage: ChannelsPage, message: string) {
