@@ -143,6 +143,7 @@ type OwnProps = {
         revokeUserAccessToken: (tokenId: string) => Promise<ActionResult>;
         enableUserAccessToken: (tokenId: string) => Promise<ActionResult>;
         disableUserAccessToken: (tokenId: string) => Promise<ActionResult>;
+        rotateUserAccessToken: (tokenId: string, expiresAt?: number) => Promise<ActionResult<UserAccessToken>>;
         clearUserAccessTokens: () => void;
     };
 };
@@ -540,6 +541,64 @@ class UserAccessTokenSection extends React.PureComponent<Props, State> {
         }
     };
 
+    confirmRegenerateToken = (tokenId: string) => {
+        const token = this.props.userAccessTokens[tokenId];
+
+        this.setState({
+            showConfirmModal: true,
+            confirmTitle: (
+                <FormattedMessage
+                    id='user.settings.tokens.confirmRegenerateTitle'
+                    defaultMessage='Regenerate Token?'
+                />
+            ),
+            confirmMessage: () => (
+                <div className='alert alert-danger'>
+                    <p>
+                        <FormattedMessage
+                            id='user.settings.tokens.confirmRegenerate.description'
+                            defaultMessage={'The current secret for this token will stop working immediately. Any integrations using it will need to be updated with the new secret. You cannot undo this action.'}
+                        />
+                    </p>
+                    <p>
+                        <FormattedMessage
+                            id='user.settings.tokens.confirmRegenerate.confirmation'
+                            defaultMessage={'Are you sure you want to regenerate the <b>{description}</b> token?'}
+                            values={{
+                                description: token.description,
+                                b: (chunks) => <b>{chunks}</b>,
+                            }}
+                        />
+                    </p>
+                </div>
+            ),
+            confirmButton: (
+                <FormattedMessage
+                    id='user.settings.tokens.confirmRegenerateButton'
+                    defaultMessage='Yes, Regenerate'
+                />
+            ),
+            confirmComplete: () => {
+                this.regenerateToken(tokenId);
+            },
+        });
+    };
+
+    regenerateToken = async (tokenId: string) => {
+        this.props.setRequireConfirm(true, this.confirmCopyToken);
+        this.setState({saving: true});
+
+        const {data, error} = await this.props.actions.rotateUserAccessToken(tokenId);
+
+        if (data) {
+            this.setState({tokenCreationState: TOKEN_CREATED, newToken: data, saving: false});
+        } else if (error) {
+            this.setState({serverError: error.message, saving: false});
+        }
+
+        this.handleCancelConfirm();
+    };
+
     render() {
         let tokenListClass = '';
 
@@ -711,6 +770,24 @@ class UserAccessTokenSection extends React.PureComponent<Props, State> {
                     {expiryRow}
                     <div>
                         {activeLink}
+                        {token.is_active && (
+                            <>
+                                {' - '}
+                                <a
+                                    id={token.id + '_regenerate'}
+                                    href='#'
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        this.confirmRegenerateToken(token.id);
+                                    }}
+                                >
+                                    <FormattedMessage
+                                        id='user.settings.tokens.regenerate'
+                                        defaultMessage='Regenerate'
+                                    />
+                                </a>
+                            </>
+                        )}
                         {' - '}
                         <a
                             id={token.id + '_delete'}
