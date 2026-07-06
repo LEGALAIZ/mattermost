@@ -131,11 +131,10 @@ var searchFileInfoStoreTests = []searchTest{
 		Tags: []string{EngineAll},
 	},
 	{
-		Name:        "Should support terms with dash",
-		Fn:          testFileInfoSupportTermsWithDash,
-		Tags:        []string{EngineAll},
-		Skip:        true,
-		SkipMessage: "Hyphenated compound matching isn't viable for filenames: PostgreSQL's parser tokenizes a hyphenated name glued to an extension (e.g. \"photo-2024.jpg\") as an opaque host-type token, so a hyphen-preserving query can never match it. See MM-24529.",
+		Name: "Should support terms with dash",
+		Fn:   testFileInfoSupportTermsWithDash,
+		Tags: []string{EngineAll},
+		Skip: true,
 	},
 	{
 		Name: "Should support terms with underscore",
@@ -152,7 +151,7 @@ var searchFileInfoStoreTests = []searchTest{
 		Fn:          testFileInfoSearchTermsWithDashes,
 		Tags:        []string{EngineAll},
 		Skip:        true,
-		SkipMessage: "Hyphenated compound matching isn't viable for filenames: PostgreSQL's parser tokenizes a hyphenated name glued to an extension (e.g. \"photo-2024.jpg\") as an opaque host-type token, so a hyphen-preserving query can never match it. See MM-24529.",
+		SkipMessage: "Not working",
 	},
 	{
 		Name: "Should be able to search terms with dots",
