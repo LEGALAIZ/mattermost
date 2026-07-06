@@ -69,10 +69,11 @@ export async function openPostDotMenu(channelsPage: ChannelsPage, postId: string
     await post.toBeVisible();
     await post.container.scrollIntoViewIfNeeded();
     await expect(async () => {
+        await channelsPage.page.keyboard.press('Escape');
         await post.hover();
         await post.postMenu.toBeVisible();
         await post.postMenu.openDotMenu();
-        await channelsPage.postDotMenu.toBeVisible();
+        await expect(channelsPage.page.getByRole('menuitem', {name: /Mark as Unread/i})).toBeVisible();
     }).toPass();
 
     return post;
@@ -80,7 +81,7 @@ export async function openPostDotMenu(channelsPage: ChannelsPage, postId: string
 
 export async function markPostAsUnreadFromMenu(channelsPage: ChannelsPage, postId: string, rhs = false) {
     await openPostDotMenu(channelsPage, postId, rhs);
-    await channelsPage.postDotMenu.markAsUnreadMenuItem.click();
+    await channelsPage.page.getByRole('menuitem', {name: /Mark as Unread/i}).click();
 }
 
 export async function expectUnreadSeparator(channelsPage: ChannelsPage, message: string) {

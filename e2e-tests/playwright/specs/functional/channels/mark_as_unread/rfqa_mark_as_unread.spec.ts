@@ -93,16 +93,11 @@ test('MM-T250 Mark as unread in the RHS', {tag: '@rfqa'}, async ({pw}) => {
     // # Create a thread and mark the root post unread from the RHS
     const root = await createPost(adminClient, author, channelA, 'post1');
     await createPost(adminClient, author, channelA, 'post2', root.id);
-    const {channelsPage, page} = await pw.testBrowser.login(user);
+    const {channelsPage} = await pw.testBrowser.login(user);
     await channelsPage.goto(team.name, channelA.name);
     await channelsPage.toBeVisible();
     await (await channelsPage.centerView.getPostById(root.id)).reply();
-    await adminClient.markPostAsUnread(user.id, root.id);
-    await page.reload();
-    if (!(await channelsPage.sidebarRight.container.isVisible().catch(() => false))) {
-        await channelsPage.goto(team.name, channelA.name);
-        await (await channelsPage.centerView.getPostById(root.id)).reply();
-    }
+    await markPostAsUnreadFromMenu(channelsPage, root.id, true);
 
     // * Verify the center channel shows the unread separator and RHS does not
     await expectUnreadSeparator(channelsPage, 'post1');
