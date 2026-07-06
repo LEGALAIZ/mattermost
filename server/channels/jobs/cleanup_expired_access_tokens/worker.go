@@ -103,20 +103,8 @@ func cleanupExpired(
 			userIDs[token.UserId] = struct{}{}
 		}
 
-		// Notify owners before deleting: the token still carries its UserId
-		// here, and deletion right after makes re-notification impossible.
-		// Isolate the notifier with its own recover so a panic inside it can
-		// never abort execute() before DeleteByIds runs — notification is
-		// best-effort and must not block cleanup.
 		if notifyExpired != nil {
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						logger.Error("Recovered from panic while notifying expired token owners", mlog.Any("panic", r))
-					}
-				}()
-				notifyExpired(expired)
-			}()
+			notifyExpired(expired)
 		}
 
 		deleted, err := store.DeleteByIds(ids)

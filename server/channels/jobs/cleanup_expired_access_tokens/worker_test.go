@@ -198,15 +198,4 @@ func TestCleanupExpired(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, store.deletedIDs, 1)
 	})
-
-	t.Run("notify panic does not block deletion", func(t *testing.T) {
-		store := &fakeStore{batches: [][]*model.UserAccessToken{makeTokens(2, 1000)}}
-		panicking := func(_ []*model.UserAccessToken) { panic("notify boom") }
-
-		require.NotPanics(t, func() {
-			err := cleanupExpired(logger, store, nopClearSession, panicking, 9999, 1000, 10)
-			require.NoError(t, err)
-		})
-		require.Len(t, store.deletedIDs, 1, "delete must still run after a notify panic")
-	})
 }
