@@ -29,16 +29,17 @@ test('MM-T350 Searching displays results in the RHS', {tag: '@rfqa'}, async ({pw
  * @objective Verify changing timezone changes which posts match an on: date filter.
  */
 test('MM-T595 Changing timezone changes day search results appears', {tag: '@rfqa'}, async ({pw}) => {
-    const {adminClient, team, user, userClient} = await pw.initSetup();
+    const {adminClient, team, user} = await pw.initSetup();
     const channel = await adminClient.getChannelByName(team.id, 'off-topic');
     const identifier = `timezone-${pw.random.id()}`;
     const targetMessage = `targetAM ${identifier}`;
     const targetTimestamp = Date.UTC(2018, 9, 31, 23, 59);
 
     // # Create a post close to a day boundary and search in UTC
-    await userClient.patchMe({
+    await adminClient.patchUser({
+        id: user.id,
         timezone: {automaticTimezone: '', manualTimezone: 'UTC', useAutomaticTimezone: 'false'},
-    } as any);
+    });
     await createPost(adminClient, user, channel, targetMessage, '', targetTimestamp);
     const {channelsPage} = await pw.testBrowser.login(user);
     await channelsPage.goto(team.name, channel.name);
@@ -49,9 +50,10 @@ test('MM-T595 Changing timezone changes day search results appears', {tag: '@rfq
     await expectSearchResult(channelsPage, targetMessage);
 
     // # Change timezone and run the same date-filtered search
-    await userClient.patchMe({
+    await adminClient.patchUser({
+        id: user.id,
         timezone: {automaticTimezone: '', manualTimezone: 'Europe/Brussels', useAutomaticTimezone: 'false'},
-    } as any);
+    });
     await channelsPage.page.reload();
     await submitSearch(channelsPage, `on:2018-10-31 ${identifier}`);
 

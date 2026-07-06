@@ -66,10 +66,14 @@ export async function openPostDotMenu(channelsPage: ChannelsPage, postId: string
         ? await channelsPage.sidebarRight.getPostById(postId)
         : await channelsPage.centerView.getPostById(postId);
 
-    await post.hover();
-    await post.postMenu.toBeVisible();
-    await post.postMenu.openDotMenu();
-    await channelsPage.postDotMenu.toBeVisible();
+    await post.toBeVisible();
+    await post.container.scrollIntoViewIfNeeded();
+    await expect(async () => {
+        await post.hover();
+        await post.postMenu.toBeVisible();
+        await post.postMenu.openDotMenu();
+        await channelsPage.postDotMenu.toBeVisible();
+    }).toPass();
 
     return post;
 }
