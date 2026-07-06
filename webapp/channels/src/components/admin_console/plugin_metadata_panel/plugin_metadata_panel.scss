@@ -16,8 +16,8 @@
     }
 
     &__id {
-        font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
         cursor: pointer;
+        font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
 
         &:hover {
             color: var(--link-color);
