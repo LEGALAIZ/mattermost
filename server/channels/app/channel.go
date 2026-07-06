@@ -334,13 +334,16 @@ func (a *App) CreateChannel(rctx request.CTX, channel *model.Channel, addMember 
 		}
 	}
 
-	a.Srv().Go(func() {
-		pluginContext := pluginContext(rctx)
-		a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
-			hooks.ChannelHasBeenCreated(pluginContext, sc)
-			return true
-		}, plugin.ChannelHasBeenCreatedID)
-	})
+	// Space backing channels are internal: don't notify plugins of a chat-channel creation.
+	if !sc.IsSpace() {
+		a.Srv().Go(func() {
+			pluginContext := pluginContext(rctx)
+			a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
+				hooks.ChannelHasBeenCreated(pluginContext, sc)
+				return true
+			}, plugin.ChannelHasBeenCreatedID)
+		})
+	}
 
 	return sc, nil
 }
@@ -958,8 +961,11 @@ func (a *App) RestoreChannel(rctx request.CTX, channel *model.Channel, userID st
 		return nil, model.NewAppError("restoreChannel", "api.channel.restore_channel.restored.app_error", nil, "", http.StatusBadRequest)
 	}
 
-	if appErr := a.runGuardedChannelWillBeRestored(rctx, channel); appErr != nil {
-		return nil, appErr
+	// Space backing channels are internal: no plugin gets to veto their restore.
+	if !channel.IsSpace() {
+		if appErr := a.runGuardedChannelWillBeRestored(rctx, channel); appErr != nil {
+			return nil, appErr
+		}
 	}
 
 	if err := a.Srv().Store().Channel().Restore(channel.Id, model.GetMillis()); err != nil {
@@ -967,6 +973,11 @@ func (a *App) RestoreChannel(rctx request.CTX, channel *model.Channel, userID st
 	}
 	channel.DeleteAt = 0
 	a.Srv().Platform().InvalidateCacheForChannel(channel)
+
+	// Space backing channels are internal: skip the channel_restored chat event and system post.
+	if channel.IsSpace() {
+		return channel, nil
+	}
 
 	var message *model.WebSocketEvent
 	if channel.Type == model.ChannelTypeOpen {
@@ -1705,16 +1716,19 @@ func (a *App) DeleteChannel(rctx request.CTX, channel *model.Channel, userID str
 		return err
 	}
 
-	var archiveRejectionReason string
-	pluginContext := pluginContext(rctx)
-	a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
-		archiveRejectionReason = hooks.ChannelWillBeArchived(pluginContext, channel)
-		return archiveRejectionReason == ""
-	}, plugin.ChannelWillBeArchivedID)
+	// Space backing channels are internal: no plugin gets to veto their archival.
+	if !channel.IsSpace() {
+		var archiveRejectionReason string
+		pluginContext := pluginContext(rctx)
+		a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
+			archiveRejectionReason = hooks.ChannelWillBeArchived(pluginContext, channel)
+			return archiveRejectionReason == ""
+		}, plugin.ChannelWillBeArchivedID)
 
-	if archiveRejectionReason != "" {
-		return model.NewAppError("DeleteChannel", "app.channel.delete_channel.rejected_by_plugin",
-			map[string]any{"Reason": archiveRejectionReason}, "", http.StatusBadRequest)
+		if archiveRejectionReason != "" {
+			return model.NewAppError("DeleteChannel", "app.channel.delete_channel.rejected_by_plugin",
+				map[string]any{"Reason": archiveRejectionReason}, "", http.StatusBadRequest)
+		}
 	}
 
 	deleteAt := model.GetMillis()
@@ -1723,42 +1737,7 @@ func (a *App) DeleteChannel(rctx request.CTX, channel *model.Channel, userID str
 		return model.NewAppError("DeleteChannel", "app.channel.delete.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
 	}
 
-	if user != nil {
-		T := i18n.GetUserTranslations(user.Locale)
-
-		post := &model.Post{
-			ChannelId: channel.Id,
-			Message:   fmt.Sprintf(T("api.channel.delete_channel.archived"), user.Username),
-			Type:      model.PostTypeChannelDeleted,
-			UserId:    userID,
-			Props: model.StringInterface{
-				"username": user.Username,
-			},
-		}
-
-		if _, _, err := a.CreatePost(rctx, post, channel, model.CreatePostFlags{SetOnline: true}); err != nil {
-			rctx.Logger().Warn("Failed to post archive message", mlog.Err(err))
-		}
-	} else {
-		systemBot, err := a.GetSystemBot(rctx)
-		if err != nil {
-			rctx.Logger().Warn("Failed to post archive message", mlog.Err(err))
-		} else {
-			post := &model.Post{
-				ChannelId: channel.Id,
-				Message:   fmt.Sprintf(i18n.T("api.channel.delete_channel.archived"), systemBot.Username),
-				Type:      model.PostTypeChannelDeleted,
-				UserId:    systemBot.UserId,
-				Props: model.StringInterface{
-					"username": systemBot.Username,
-				},
-			}
-
-			if _, _, err := a.CreatePost(rctx, post, channel, model.CreatePostFlags{SetOnline: true}); err != nil {
-				rctx.Logger().Warn("Failed to post archive message", mlog.Err(err))
-			}
-		}
-	}
+	a.postChannelArchivedMessage(rctx, channel, userID, user)
 
 	now := model.GetMillis()
 	for _, hook := range ihcresult.Data {
@@ -1786,17 +1765,67 @@ func (a *App) DeleteChannel(rctx request.CTX, channel *model.Channel, userID str
 
 	a.Srv().Platform().InvalidateCacheForChannel(channel)
 
-	var message *model.WebSocketEvent
-	if channel.Type == model.ChannelTypeOpen {
-		message = model.NewWebSocketEvent(model.WebsocketEventChannelDeleted, channel.TeamId, "", "", nil, "")
-	} else {
-		message = model.NewWebSocketEvent(model.WebsocketEventChannelDeleted, "", channel.Id, "", nil, "")
+	// Space backing channels are internal: no channel_deleted chat event.
+	if !channel.IsSpace() {
+		var message *model.WebSocketEvent
+		if channel.Type == model.ChannelTypeOpen {
+			message = model.NewWebSocketEvent(model.WebsocketEventChannelDeleted, channel.TeamId, "", "", nil, "")
+		} else {
+			message = model.NewWebSocketEvent(model.WebsocketEventChannelDeleted, "", channel.Id, "", nil, "")
+		}
+		message.Add("channel_id", channel.Id)
+		message.Add("delete_at", deleteAt)
+		a.Publish(message)
 	}
-	message.Add("channel_id", channel.Id)
-	message.Add("delete_at", deleteAt)
-	a.Publish(message)
 
 	return nil
+}
+
+// postChannelArchivedMessage writes the "channel archived" system post, attributed to the
+// acting user or the system bot. Space backing channels are internal and skip it.
+func (a *App) postChannelArchivedMessage(rctx request.CTX, channel *model.Channel, userID string, user *model.User) {
+	if channel.IsSpace() {
+		return
+	}
+
+	if user != nil {
+		T := i18n.GetUserTranslations(user.Locale)
+
+		post := &model.Post{
+			ChannelId: channel.Id,
+			Message:   fmt.Sprintf(T("api.channel.delete_channel.archived"), user.Username),
+			Type:      model.PostTypeChannelDeleted,
+			UserId:    userID,
+			Props: model.StringInterface{
+				"username": user.Username,
+			},
+		}
+
+		if _, _, err := a.CreatePost(rctx, post, channel, model.CreatePostFlags{SetOnline: true}); err != nil {
+			rctx.Logger().Warn("Failed to post archive message", mlog.Err(err))
+		}
+		return
+	}
+
+	systemBot, err := a.GetSystemBot(rctx)
+	if err != nil {
+		rctx.Logger().Warn("Failed to post archive message", mlog.Err(err))
+		return
+	}
+
+	post := &model.Post{
+		ChannelId: channel.Id,
+		Message:   fmt.Sprintf(i18n.T("api.channel.delete_channel.archived"), systemBot.Username),
+		Type:      model.PostTypeChannelDeleted,
+		UserId:    systemBot.UserId,
+		Props: model.StringInterface{
+			"username": systemBot.Username,
+		},
+	}
+
+	if _, _, err := a.CreatePost(rctx, post, channel, model.CreatePostFlags{SetOnline: true}); err != nil {
+		rctx.Logger().Warn("Failed to post archive message", mlog.Err(err))
+	}
 }
 
 func (a *App) addUserToChannel(rctx request.CTX, user *model.User, channel *model.Channel) (*model.ChannelMember, *model.AppError) {
@@ -1924,6 +1953,20 @@ func (a *App) AddUserToChannel(rctx request.CTX, user *model.User, channel *mode
 		return nil, err
 	}
 
+	a.afterUserAddedToChannel(rctx, user, channel)
+
+	return newMember, nil
+}
+
+// afterUserAddedToChannel runs the user-facing side effects (default sidebar category,
+// user_added WebSocket events) that follow a direct add. Space backing channels are
+// internal and skip all of these; keeping the predicate in one place makes it hard to
+// forget on future side effects.
+func (a *App) afterUserAddedToChannel(rctx request.CTX, user *model.User, channel *model.Channel) {
+	if channel.IsSpace() {
+		return
+	}
+
 	a.addChannelToDefaultCategory(rctx, user.Id, channel)
 
 	// We are sending separate websocket events to the user added and to the channel
@@ -1937,8 +1980,6 @@ func (a *App) AddUserToChannel(rctx request.CTX, user *model.User, channel *mode
 	userMessage.Add("user_id", user.Id)
 	userMessage.Add("team_id", channel.TeamId)
 	a.Publish(userMessage)
-
-	return newMember, nil
 }
 
 type ChannelMemberOpts struct {
@@ -1985,6 +2026,20 @@ func (a *App) AddChannelMember(rctx request.CTX, userID string, channel *model.C
 		return nil, err
 	}
 
+	if err := a.afterChannelMemberAdded(rctx, user, channel, cm, userRequestor, opts); err != nil {
+		return nil, err
+	}
+
+	return cm, nil
+}
+
+// afterChannelMemberAdded runs the post-add lifecycle (UserHasJoinedChannel plugin hook +
+// join/add system post). Space backing channels are internal and skip all of these.
+func (a *App) afterChannelMemberAdded(rctx request.CTX, user *model.User, channel *model.Channel, cm *model.ChannelMember, userRequestor *model.User, opts ChannelMemberOpts) *model.AppError {
+	if channel.IsSpace() {
+		return nil
+	}
+
 	a.Srv().Go(func() {
 		pluginContext := pluginContext(rctx)
 		a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
@@ -1993,9 +2048,9 @@ func (a *App) AddChannelMember(rctx request.CTX, userID string, channel *model.C
 		}, plugin.UserHasJoinedChannelID)
 	})
 
-	if opts.UserRequestorID == "" || userID == opts.UserRequestorID {
+	if opts.UserRequestorID == "" || user.Id == opts.UserRequestorID {
 		if err := a.postJoinChannelMessage(rctx, user, channel); err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		a.Srv().Go(func() {
@@ -2005,7 +2060,7 @@ func (a *App) AddChannelMember(rctx request.CTX, userID string, channel *model.C
 		})
 	}
 
-	return cm, nil
+	return nil
 }
 
 func (a *App) AddDirectChannels(rctx request.CTX, teamID string, user *model.User) *model.AppError {
@@ -2196,6 +2251,23 @@ func (a *App) GetBoardChannel(rctx request.CTX, channelID string) (*model.Channe
 			return nil, model.NewAppError("GetBoardChannel", "app.channel.get.existing.app_error", map[string]any{"channel_id": channelID}, "", http.StatusNotFound).Wrap(err)
 		default:
 			return nil, model.NewAppError("GetBoardChannel", "app.channel.get.find.app_error", map[string]any{"channel_id": channelID}, "", http.StatusInternalServerError).Wrap(err)
+		}
+	}
+	return channel, nil
+}
+
+// GetSpaceBackingChannel resolves a space ("S") backing channel by ID. Generic channel access
+// goes through GetChannel, which excludes space channels; docs/spaces code that legitimately
+// needs the backing channel object uses this dedicated path.
+func (a *App) GetSpaceBackingChannel(rctx request.CTX, channelID string) (*model.Channel, *model.AppError) {
+	channel, err := a.Srv().Store().Channel().GetSpaceBackingChannel(channelID)
+	if err != nil {
+		var nfErr *store.ErrNotFound
+		switch {
+		case errors.As(err, &nfErr):
+			return nil, model.NewAppError("GetSpaceBackingChannel", "app.channel.get.existing.app_error", map[string]any{"channel_id": channelID}, "", http.StatusNotFound).Wrap(err)
+		default:
+			return nil, model.NewAppError("GetSpaceBackingChannel", "app.channel.get.find.app_error", map[string]any{"channel_id": channelID}, "", http.StatusInternalServerError).Wrap(err)
 		}
 	}
 	return channel, nil
@@ -3670,10 +3742,6 @@ func (a *App) ViewChannel(rctx request.CTX, view *model.ChannelView, userID stri
 }
 
 func (a *App) PermanentDeleteChannel(rctx request.CTX, channel *model.Channel) *model.AppError {
-	if channel.IsSpace() {
-		return model.NewAppError("PermanentDeleteChannel", "app.channel.delete_channel.space.app_error", nil, "", http.StatusBadRequest)
-	}
-
 	if err := a.Srv().Store().Post().PermanentDeleteByChannel(rctx, channel.Id); err != nil {
 		return model.NewAppError("PermanentDeleteChannel", "app.post.permanent_delete_by_channel.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
 	}
@@ -3708,15 +3776,18 @@ func (a *App) PermanentDeleteChannel(rctx request.CTX, channel *model.Channel) *
 
 	a.Srv().Platform().InvalidateCacheForChannel(channel)
 
-	var message *model.WebSocketEvent
-	if channel.Type == model.ChannelTypeOpen {
-		message = model.NewWebSocketEvent(model.WebsocketEventChannelDeleted, channel.TeamId, "", "", nil, "")
-	} else {
-		message = model.NewWebSocketEvent(model.WebsocketEventChannelDeleted, "", channel.Id, "", nil, "")
+	// Space backing channels are internal: no channel_deleted chat event.
+	if !channel.IsSpace() {
+		var message *model.WebSocketEvent
+		if channel.Type == model.ChannelTypeOpen {
+			message = model.NewWebSocketEvent(model.WebsocketEventChannelDeleted, channel.TeamId, "", "", nil, "")
+		} else {
+			message = model.NewWebSocketEvent(model.WebsocketEventChannelDeleted, "", channel.Id, "", nil, "")
+		}
+		message.Add("channel_id", channel.Id)
+		message.Add("delete_at", deleteAt)
+		a.Publish(message)
 	}
-	message.Add("channel_id", channel.Id)
-	message.Add("delete_at", deleteAt)
-	a.Publish(message)
 
 	return nil
 }

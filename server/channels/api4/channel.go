@@ -28,19 +28,13 @@ func rejectBoardChannelByID(c *Context, channelId string) bool {
 	return false
 }
 
-// rejectSpaceChannelByID returns true and sets c.Err if the channel ID belongs
-// to a space backing channel. Unlike board channels, space channels resolve
-// through the generic Get/GetMany lookups, so this checks the resolved
-// channel's type rather than relying on a lookup that only succeeds for the
-// special type. Use this on write endpoints that don't already fetch and
-// type-check the channel themselves.
+// rejectSpaceChannelByID returns true and sets c.Err if the channel ID belongs to a space
+// backing channel. Space channels are excluded from the generic Get, so this resolves them
+// through the dedicated GetSpaceBackingChannel path. Use this on write endpoints that operate
+// on a channel by ID without fetching and type-checking the channel themselves (which would
+// otherwise let a space member mutate the hidden backing channel's member/view rows).
 func rejectSpaceChannelByID(c *Context, channelId string) bool {
-	channel, err := c.App.GetChannel(c.AppContext, channelId)
-	if err != nil {
-		// Let the endpoint's own lookup surface not-found and other errors.
-		return false
-	}
-	if channel.IsSpace() {
+	if _, err := c.App.GetSpaceBackingChannel(c.AppContext, channelId); err == nil {
 		c.Err = model.NewAppError("", "api.channel.space_channel.app_error", nil, "space channels cannot be accessed via /channels endpoints", http.StatusBadRequest)
 		return true
 	}
@@ -350,13 +344,6 @@ func updateChannelPrivacy(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	auditRec.AddEventPriorState(channel)
 
-	// Space backing channels are managed through the spaces feature, not this generic endpoint;
-	// converting one would surface it in every list/search/sidebar query that filters spaces out.
-	if channel.IsSpace() {
-		c.Err = model.NewAppError("updateChannelPrivacy", "api.channel.update_channel_privacy.type.invalid", nil, "", http.StatusBadRequest)
-		return
-	}
-
 	if model.ChannelType(privacy) == model.ChannelTypeOpen {
 		if ok, _ := c.App.SessionHasPermissionToChannel(c.AppContext, *c.AppContext.Session(), c.Params.ChannelId, model.PermissionConvertPrivateChannelToPublic); !ok {
 			c.SetPermissionError(model.PermissionConvertPrivateChannelToPublic)
@@ -600,12 +587,6 @@ func restoreChannel(c *Context, w http.ResponseWriter, r *http.Request) {
 	channel, err := c.App.GetChannel(c.AppContext, c.Params.ChannelId)
 	if err != nil {
 		c.Err = err
-		return
-	}
-
-	// Space backing channels are managed through the spaces feature, not this generic endpoint.
-	if channel.IsSpace() {
-		c.Err = model.NewAppError("restoreChannel", "api.channel.space_channel.app_error", nil, "space channels cannot be accessed via /channels endpoints", http.StatusBadRequest)
 		return
 	}
 
@@ -1083,18 +1064,10 @@ func getChannelsMemberCount(c *Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Space backing channels resolve through GetChannels but must be filtered out of
-	// this user-facing aggregate.
-	filteredIDs := make([]string, 0, len(channels))
-	filteredChannels := make([]*model.Channel, 0, len(channels))
-	for _, ch := range channels {
-		if ch.IsSpace() {
-			continue
-		}
-		filteredIDs = append(filteredIDs, ch.Id)
-		filteredChannels = append(filteredChannels, ch)
+	filteredIDs := make([]string, len(channels))
+	for i, ch := range channels {
+		filteredIDs[i] = ch.Id
 	}
-	channels = filteredChannels
 
 	for _, channel := range channels {
 		if !c.App.HasPermissionToChannelMemberCount(c.AppContext, c.AppContext.Session().UserId, channel) {
@@ -1751,12 +1724,6 @@ func deleteChannel(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	if channel.Type == model.ChannelTypeDirect || channel.Type == model.ChannelTypeGroup {
 		c.Err = model.NewAppError("deleteChannel", "api.channel.delete_channel.type.invalid", nil, "", http.StatusBadRequest)
-		return
-	}
-
-	// Space backing channels are managed through the spaces feature, not this generic endpoint.
-	if channel.IsSpace() {
-		c.Err = model.NewAppError("deleteChannel", "api.channel.space_channel.app_error", nil, "space channels cannot be accessed via /channels endpoints", http.StatusBadRequest)
 		return
 	}
 
@@ -2445,12 +2412,6 @@ func addChannelMember(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Space backing channels are managed through the spaces feature, not this generic endpoint.
-	if channel.IsSpace() {
-		c.Err = model.NewAppError("addChannelMember", "api.channel.space_channel.app_error", nil, "space channels cannot be accessed via /channels endpoints", http.StatusBadRequest)
-		return
-	}
-
 	canAddSelf := false
 	canAddOthers := false
 	if channel.Type == model.ChannelTypeOpen {
@@ -2704,8 +2665,8 @@ func setChannelMembers(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reject DM/GM and space backing channels
-	if channel.Type == model.ChannelTypeDirect || channel.Type == model.ChannelTypeGroup || channel.IsSpace() {
+	// Reject DM/GM channels
+	if channel.Type == model.ChannelTypeDirect || channel.Type == model.ChannelTypeGroup {
 		c.Err = model.NewAppError("setChannelMembers", "api.channel.set_members.type.app_error", nil, "", http.StatusBadRequest)
 		return
 	}
@@ -2893,12 +2854,6 @@ func updateChannelScheme(c *Context, w http.ResponseWriter, r *http.Request) {
 	channel, err := c.App.GetChannel(c.AppContext, c.Params.ChannelId)
 	if err != nil {
 		c.Err = err
-		return
-	}
-
-	// Space backing channels are managed through the spaces feature, not this generic endpoint.
-	if channel.IsSpace() {
-		c.Err = model.NewAppError("Api4.UpdateChannelScheme", "api.channel.update_channel_scheme.space.app_error", nil, "", http.StatusBadRequest)
 		return
 	}
 

@@ -43,14 +43,6 @@ var messageChannelTypes = []model.ChannelType{
 	model.ChannelTypeGroup,
 }
 
-// channelByIdTypes is messageChannelTypes plus the space (S) backing-channel type.
-// Single-channel by-id lookups (Get/GetMany) must resolve S channels so a page
-// comment's backing channel can be loaded. S channels stay excluded from
-// list/search/sidebar/autocomplete queries (which keep using messageChannelTypes)
-// and from analytics/export/membership-listing queries (which use
-// nonMessageBackingChannelTypes below).
-var channelByIdTypes = append(slices.Clone(messageChannelTypes), model.ChannelTypeSpace)
-
 // nonMessageBackingChannelTypes is the deny-list applied to queries that don't
 // already filter through the messageChannelTypes allow-list (e.g. because they
 // also need to include board channels' membership rows). Adding a new
@@ -984,7 +976,7 @@ func (s SqlChannelStore) Get(id string, allowFromCache bool) (*model.Channel, er
 	ch := model.Channel{}
 	query := s.tableSelectQuery.Where(sq.And{
 		sq.Eq{"Id": id},
-		sq.Eq{"Type": channelByIdTypes},
+		sq.Eq{"Type": messageChannelTypes},
 	})
 
 	err := s.GetReplica().GetBuilder(&ch, query)
@@ -1016,6 +1008,27 @@ func (s SqlChannelStore) GetBoardChannel(id string) (*model.Channel, error) {
 	return &ch, nil
 }
 
+// GetSpaceBackingChannel fetches a channel of type S ("space") by ID. Use this in docs/spaces
+// code that legitimately needs the backing channel object; all generic channel endpoints use
+// Get(), which excludes space channels.
+func (s SqlChannelStore) GetSpaceBackingChannel(id string) (*model.Channel, error) {
+	ch := model.Channel{}
+	query := s.tableSelectQuery.Where(sq.And{
+		sq.Eq{"Id": id},
+		sq.Eq{"Type": model.ChannelTypeSpace},
+	})
+
+	err := s.GetReplica().GetBuilder(&ch, query)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, store.NewErrNotFound("Channel", id)
+		}
+		return nil, errors.Wrapf(err, "failed to find space channel with id = %s", id)
+	}
+
+	return &ch, nil
+}
+
 //nolint:unparam
 func (s SqlChannelStore) GetMany(ids []string, allowFromCache bool) (model.ChannelList, error) {
 	query := s.getQueryBuilder().
@@ -1023,7 +1036,7 @@ func (s SqlChannelStore) GetMany(ids []string, allowFromCache bool) (model.Chann
 		From("Channels").
 		Where(sq.And{
 			sq.Eq{"Id": ids},
-			sq.Eq{"Type": channelByIdTypes},
+			sq.Eq{"Type": messageChannelTypes},
 		})
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -1556,6 +1569,24 @@ func (s SqlChannelStore) GetTeamChannels(teamId string) (model.ChannelList, erro
 
 	if len(data) == 0 {
 		return nil, store.NewErrNotFound("Channel", fmt.Sprintf("teamId=%s", teamId))
+	}
+
+	return data, nil
+}
+
+// GetTeamSpaceChannels returns all space (S) backing channels for a team, including archived
+// ones, so team teardown can permanently remove them. Space channels are excluded from
+// GetTeamChannels/GetAll, so they need a dedicated enumerator here. Returns an empty list
+// (not ErrNotFound) when the team has no spaces.
+func (s SqlChannelStore) GetTeamSpaceChannels(teamId string) (model.ChannelList, error) {
+	data := model.ChannelList{}
+	query := s.tableSelectQuery.Where(sq.And{
+		sq.Eq{"TeamId": teamId},
+		sq.Eq{"Type": model.ChannelTypeSpace},
+	}).OrderBy("Id")
+
+	if err := s.GetReplica().SelectBuilder(&data, query); err != nil {
+		return nil, errors.Wrapf(err, "failed to find space Channels with teamId=%s", teamId)
 	}
 
 	return data, nil

@@ -504,6 +504,13 @@ func (api *apiTimerLayer) RestoreChannel(channelId string) *model.AppError {
 	return _returnsA
 }
 
+func (api *apiTimerLayer) GetSpaceBackingChannel(channelId string) (*model.Channel, *model.AppError) {
+	startTime := timePkg.Now()
+	_returnsA, _returnsB := api.apiImpl.GetSpaceBackingChannel(channelId)
+	api.recordTime(startTime, "GetSpaceBackingChannel", _returnsB == nil)
+	return _returnsA, _returnsB
+}
+
 func (api *apiTimerLayer) GetPublicChannelsForTeam(teamID string, page, perPage int) ([]*model.Channel, *model.AppError) {
 	startTime := timePkg.Now()
 	_returnsA, _returnsB := api.apiImpl.GetPublicChannelsForTeam(teamID, page, perPage)

@@ -3810,6 +3810,45 @@ func TestPluginAPICreateSpaceAndAddMember(t *testing.T) {
 	require.Equal(t, th.BasicUser.Id, member.UserId)
 }
 
+func TestPluginAPISpaceLifecycleSkipsChatSideEffects(t *testing.T) {
+	mainHelper.Parallel(t)
+
+	th := Setup(t).InitBasic(t)
+	th.ConfigStore.SetReadOnlyFF(false)
+	t.Cleanup(func() {
+		th.ConfigStore.SetReadOnlyFF(true)
+	})
+	th.App.UpdateConfig(func(cfg *model.Config) { cfg.FeatureFlags.EnableDocs = true })
+	defer th.App.UpdateConfig(func(cfg *model.Config) { cfg.FeatureFlags.EnableDocs = false })
+
+	api := th.SetupPluginAPI()
+
+	space := &model.Channel{
+		TeamId:      th.BasicTeam.Id,
+		DisplayName: "Space",
+		Name:        "space-" + model.NewId(),
+		Type:        model.ChannelTypeSpace,
+		CreatorId:   th.BasicUser.Id,
+	}
+	created, appErr := api.CreateChannel(space)
+	require.Nil(t, appErr)
+
+	_, appErr = api.AddChannelMember(created.Id, th.BasicUser.Id)
+	require.Nil(t, appErr)
+
+	appErr = api.DeleteChannel(created.Id)
+	require.Nil(t, appErr)
+
+	appErr = api.RestoreChannel(created.Id)
+	require.Nil(t, appErr)
+
+	// Internal backing channels get none of the chat-UI side effects: no join system post on
+	// member add, no archive post on delete, no unarchive post on restore.
+	posts, appErr := th.App.GetPosts(th.Context, created.Id, 0, 60)
+	require.Nil(t, appErr)
+	assert.Empty(t, posts.Order, "space backing channel should carry no join/archive/restore system posts")
+}
+
 func TestPluginAPIDeleteAndRestoreChannelAllowSpace(t *testing.T) {
 	mainHelper.Parallel(t)
 
@@ -3891,6 +3930,39 @@ func TestPluginAPICreateChannelAnonymousURLs(t *testing.T) {
 
 		assert.NotEqual(t, originalName, createdChannel.Name, "private channel name should be overridden")
 		assert.True(t, model.IsValidId(createdChannel.Name), "channel name should be a valid server-generated ID")
+	})
+
+	t.Run("should preserve space backing channel name when UseAnonymousURLs is enabled", func(t *testing.T) {
+		th.ConfigStore.SetReadOnlyFF(false)
+		defer th.ConfigStore.SetReadOnlyFF(true)
+		th.App.UpdateConfig(func(cfg *model.Config) {
+			*cfg.PrivacySettings.UseAnonymousURLs = true
+			cfg.FeatureFlags.EnableDocs = true
+		})
+		defer th.App.UpdateConfig(func(cfg *model.Config) {
+			*cfg.PrivacySettings.UseAnonymousURLs = false
+			cfg.FeatureFlags.EnableDocs = false
+		})
+
+		th.App.Srv().SetLicense(model.NewTestLicenseSKU(model.LicenseShortSkuEnterpriseAdvanced))
+		defer func() {
+			appErr := th.App.Srv().RemoveLicense()
+			require.Nil(t, appErr)
+		}()
+
+		originalName := "space-" + model.NewId()
+		channel := &model.Channel{
+			DisplayName: "Space",
+			Name:        originalName,
+			Type:        model.ChannelTypeSpace,
+			TeamId:      th.BasicTeam.Id,
+		}
+
+		createdChannel, appErr := api.CreateChannel(channel)
+		require.Nil(t, appErr)
+		require.NotNil(t, createdChannel)
+
+		assert.Equal(t, originalName, createdChannel.Name, "space backing channel name should not be rewritten")
 	})
 
 	t.Run("should preserve channel name when UseAnonymousURLs is disabled", func(t *testing.T) {

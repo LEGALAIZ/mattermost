@@ -453,6 +453,13 @@ type API interface {
 	// Minimum server version: 11.9
 	RestoreChannel(channelId string) *model.AppError
 
+	// GetSpaceBackingChannel resolves a space ("S") backing channel by ID. Generic GetChannel
+	// excludes space channels; docs/spaces plugins that manage them use this dedicated resolver.
+	//
+	// @tag Channel
+	// Minimum server version: 11.9
+	GetSpaceBackingChannel(channelId string) (*model.Channel, *model.AppError)
+
 	// GetPublicChannelsForTeam gets a list of all channels.
 	//
 	// @tag Channel

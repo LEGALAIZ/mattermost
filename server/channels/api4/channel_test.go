@@ -7827,13 +7827,11 @@ func addUserToSpaceChannel(t *testing.T, th *TestHelper, space *model.Channel, u
 }
 
 // TestChannelEndpointsExcludeSpaces mirrors TestChannelEndpointsExcludeBoards for the space ("S")
-// backing-channel type, with one deliberate difference: unlike boards (which are invisible to the
-// generic Get and so 404 everywhere), a space backing channel IS resolvable by id for its members
-// — that is the whole point of channelByIdTypes — while still never leaking into any list, search,
-// or by-name surface.
-//
-// getChannel gates non-Open channel types on PermissionReadChannel, granted via channel-scoped
-// roles — so a plain team member who isn't a space member is denied.
+// backing-channel type: like boards, a space channel is excluded from the generic Get/GetMany and
+// 404s on every /channels endpoint, and never leaks into any list, search, or by-name surface.
+// Space channels resolve only through the dedicated GetSpaceBackingChannel path (used by the docs
+// plugin). Endpoints that operate on member/view rows by ID without resolving the channel are
+// guarded explicitly via rejectSpaceChannelByID (which uses that dedicated resolver).
 func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 	mainHelper.Parallel(t)
 	th := Setup(t).InitBasic(t)
@@ -7945,33 +7943,22 @@ func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 		}
 	})
 
-	// --- Unlike boards, a space backing channel IS resolvable by id for its members ---
+	// --- Like boards, a space backing channel is excluded from the generic getChannel and
+	// --- 404s for everyone; it resolves only through the dedicated space APIs. ---
 
-	t.Run("getChannel resolves a space for a member", func(t *testing.T) {
-		got, resp, err := client.GetChannel(ctx, space.Id)
-		require.NoError(t, err)
-		CheckOKStatus(t, resp)
-		require.Equal(t, model.ChannelTypeSpace, got.Type)
-		require.Equal(t, space.Id, got.Id)
-	})
-
-	t.Run("getChannel resolves a space for system admin", func(t *testing.T) {
-		got, resp, err := th.SystemAdminClient.GetChannel(ctx, space.Id)
-		require.NoError(t, err)
-		CheckOKStatus(t, resp)
-		require.Equal(t, model.ChannelTypeSpace, got.Type)
-	})
-
-	t.Run("getChannel denies a team member who is not a space member", func(t *testing.T) {
-		nonMemberClient := th.CreateClient()
-		th.LoginBasic2WithClient(t, nonMemberClient)
-
-		_, resp, err := nonMemberClient.GetChannel(ctx, space.Id)
+	t.Run("getChannel 404s a space for a member", func(t *testing.T) {
+		_, resp, err := client.GetChannel(ctx, space.Id)
 		require.Error(t, err)
-		CheckForbiddenStatus(t, resp)
+		CheckNotFoundStatus(t, resp)
 	})
 
-	// --- Generic destructive/conversion endpoints reject spaces (managed by the spaces feature) ---
+	t.Run("getChannel 404s a space for system admin", func(t *testing.T) {
+		_, resp, err := th.SystemAdminClient.GetChannel(ctx, space.Id)
+		require.Error(t, err)
+		CheckNotFoundStatus(t, resp)
+	})
+
+	// --- Generic destructive/conversion endpoints 404 (Get-resolving) or reject (member-mutation) spaces ---
 
 	t.Run("createChannel rejects a space", func(t *testing.T) {
 		_, resp, err := client.CreateChannel(ctx, &model.Channel{
@@ -7984,22 +7971,22 @@ func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 		CheckBadRequestStatus(t, resp)
 	})
 
-	t.Run("deleteChannel rejects a space", func(t *testing.T) {
+	t.Run("deleteChannel 404s a space", func(t *testing.T) {
 		resp, err := th.SystemAdminClient.DeleteChannel(ctx, space.Id)
 		require.Error(t, err)
-		CheckBadRequestStatus(t, resp)
+		CheckNotFoundStatus(t, resp)
 	})
 
-	t.Run("updateChannelPrivacy rejects a space", func(t *testing.T) {
+	t.Run("updateChannelPrivacy 404s a space", func(t *testing.T) {
 		_, resp, err := th.SystemAdminClient.UpdateChannelPrivacy(ctx, space.Id, model.ChannelTypeOpen)
 		require.Error(t, err)
-		CheckBadRequestStatus(t, resp)
+		CheckNotFoundStatus(t, resp)
 	})
 
-	t.Run("restoreChannel rejects a space", func(t *testing.T) {
+	t.Run("restoreChannel 404s a space", func(t *testing.T) {
 		_, resp, err := th.SystemAdminClient.RestoreChannel(ctx, space.Id)
 		require.Error(t, err)
-		CheckBadRequestStatus(t, resp)
+		CheckNotFoundStatus(t, resp)
 	})
 
 	t.Run("updateChannelScheme rejects a space", func(t *testing.T) {
@@ -8020,7 +8007,7 @@ func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 
 		resp, err := th.SystemAdminClient.UpdateChannelScheme(ctx, space.Id, channelScheme.Id)
 		require.Error(t, err)
-		CheckBadRequestStatus(t, resp)
+		CheckNotFoundStatus(t, resp)
 	})
 
 	// --- Generic member/view-state mutation endpoints reject spaces (managed by the spaces feature) ---
@@ -8063,22 +8050,22 @@ func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 		CheckBadRequestStatus(t, resp)
 	})
 
-	t.Run("addChannelMember rejects a space", func(t *testing.T) {
+	t.Run("addChannelMember 404s a space", func(t *testing.T) {
 		_, resp, err := th.SystemAdminClient.AddChannelMember(ctx, space.Id, th.BasicUser2.Id)
 		require.Error(t, err)
-		CheckBadRequestStatus(t, resp)
+		CheckNotFoundStatus(t, resp)
 	})
 
-	t.Run("setChannelMembers rejects a space", func(t *testing.T) {
+	t.Run("setChannelMembers 404s a space", func(t *testing.T) {
 		_, resp, err := th.SystemAdminClient.SetChannelMembers(ctx, space.Id, &model.SetChannelMembersRequest{Members: []string{th.BasicUser2.Id}}, 0, 0)
 		require.Error(t, err)
-		CheckBadRequestStatus(t, resp)
+		CheckNotFoundStatus(t, resp)
 	})
 
-	t.Run("moveChannel rejects a space", func(t *testing.T) {
+	t.Run("moveChannel 404s a space", func(t *testing.T) {
 		_, resp, err := th.SystemAdminClient.MoveChannel(ctx, space.Id, th.BasicTeam.Id, false)
 		require.Error(t, err)
-		CheckForbiddenStatus(t, resp)
+		CheckNotFoundStatus(t, resp)
 	})
 
 	// --- rejectSpaceChannelByID's swallowed GetChannel error still lets the endpoint's own
@@ -8088,6 +8075,37 @@ func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 		resp, err := th.SystemAdminClient.UpdateChannelRoles(ctx, model.NewId(), th.BasicUser.Id, "channel_user")
 		require.Error(t, err)
 		CheckForbiddenStatus(t, resp)
+	})
+}
+
+// TestLocalChannelEndpointsRejectSpaces mirrors the REST rejections for the local (admin socket)
+// channel endpoints, which route through their own handlers and must reject S just like /api/v4.
+// TestLocalChannelEndpoints404Spaces verifies the local (admin socket) channel endpoints 404 a
+// space, the same as /api/v4: space channels are excluded from the generic GetChannel these
+// handlers resolve through, so they never reach the mutation.
+func TestLocalChannelEndpoints404Spaces(t *testing.T) {
+	mainHelper.Parallel(t)
+	th := Setup(t).InitBasic(t)
+	ctx := context.Background()
+
+	space := createTestSpaceChannel(t, th)
+
+	t.Run("local deleteChannel 404s a space", func(t *testing.T) {
+		resp, err := th.LocalClient.DeleteChannel(ctx, space.Id)
+		require.Error(t, err)
+		CheckNotFoundStatus(t, resp)
+	})
+
+	t.Run("local restoreChannel 404s a space", func(t *testing.T) {
+		_, resp, err := th.LocalClient.RestoreChannel(ctx, space.Id)
+		require.Error(t, err)
+		CheckNotFoundStatus(t, resp)
+	})
+
+	t.Run("local addChannelMember 404s a space", func(t *testing.T) {
+		_, resp, err := th.LocalClient.AddChannelMember(ctx, space.Id, th.BasicUser2.Id)
+		require.Error(t, err)
+		CheckNotFoundStatus(t, resp)
 	})
 }
 

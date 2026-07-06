@@ -467,7 +467,7 @@ func (api *PluginAPI) GetLDAPUserAttributes(userID string, attributes []string) 
 
 func (api *PluginAPI) CreateChannel(channel *model.Channel) (*model.Channel, *model.AppError) {
 	UseAnonymousURLs := model.SafeDereference(api.app.Config().PrivacySettings.UseAnonymousURLs) && model.MinimumEnterpriseAdvancedLicense(api.app.License())
-	if !channel.IsGroupOrDirect() && UseAnonymousURLs {
+	if !channel.IsGroupOrDirect() && !channel.IsSpace() && UseAnonymousURLs {
 		channel.Name = model.NewId()
 	}
 
@@ -475,7 +475,7 @@ func (api *PluginAPI) CreateChannel(channel *model.Channel) (*model.Channel, *mo
 }
 
 func (api *PluginAPI) DeleteChannel(channelID string) *model.AppError {
-	channel, err := api.app.GetChannel(api.ctx, channelID)
+	channel, err := api.resolveManagedChannel(channelID)
 	if err != nil {
 		return err
 	}
@@ -483,7 +483,7 @@ func (api *PluginAPI) DeleteChannel(channelID string) *model.AppError {
 }
 
 func (api *PluginAPI) RestoreChannel(channelID string) *model.AppError {
-	channel, err := api.app.GetChannel(api.ctx, channelID)
+	channel, err := api.resolveManagedChannel(channelID)
 	if err != nil {
 		return err
 	}
@@ -501,6 +501,26 @@ func (api *PluginAPI) GetPublicChannelsForTeam(teamID string, page, perPage int)
 
 func (api *PluginAPI) GetChannel(channelID string) (*model.Channel, *model.AppError) {
 	return api.app.GetChannel(api.ctx, channelID)
+}
+
+// GetSpaceBackingChannel resolves a space ("S") backing channel by ID. Generic GetChannel
+// excludes space channels; docs/spaces plugins that manage them use this dedicated resolver.
+func (api *PluginAPI) GetSpaceBackingChannel(channelID string) (*model.Channel, *model.AppError) {
+	return api.app.GetSpaceBackingChannel(api.ctx, channelID)
+}
+
+// resolveManagedChannel resolves a channel by ID for the space-lifecycle operations below
+// (delete/restore/member-add), which the docs plugin invokes on space backing channels.
+// Generic GetChannel excludes space channels, so fall back to the dedicated resolver on
+// not-found. Distinct from GetChannel, which stays a pure generic lookup.
+func (api *PluginAPI) resolveManagedChannel(channelID string) (*model.Channel, *model.AppError) {
+	channel, err := api.app.GetChannel(api.ctx, channelID)
+	if err != nil && err.StatusCode == http.StatusNotFound {
+		if space, spaceErr := api.app.GetSpaceBackingChannel(api.ctx, channelID); spaceErr == nil {
+			return space, nil
+		}
+	}
+	return channel, err
 }
 
 func (api *PluginAPI) GetChannelByName(teamID, name string, includeDeleted bool) (*model.Channel, *model.AppError) {
@@ -630,7 +650,7 @@ func (api *PluginAPI) SearchPostsInTeamForUser(teamID string, userID string, sea
 }
 
 func (api *PluginAPI) AddChannelMember(channelID, userID string) (*model.ChannelMember, *model.AppError) {
-	channel, err := api.GetChannel(channelID)
+	channel, err := api.resolveManagedChannel(channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +663,7 @@ func (api *PluginAPI) AddChannelMember(channelID, userID string) (*model.Channel
 }
 
 func (api *PluginAPI) AddUserToChannel(channelID, userID, asUserID string) (*model.ChannelMember, *model.AppError) {
-	channel, err := api.GetChannel(channelID)
+	channel, err := api.resolveManagedChannel(channelID)
 	if err != nil {
 		return nil, err
 	}

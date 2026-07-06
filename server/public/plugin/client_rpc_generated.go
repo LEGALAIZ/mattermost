@@ -4222,6 +4222,35 @@ func (s *apiRPCServer) RestoreChannel(args *Z_RestoreChannelArgs, returns *Z_Res
 	return nil
 }
 
+type Z_GetSpaceBackingChannelArgs struct {
+	A string
+}
+
+type Z_GetSpaceBackingChannelReturns struct {
+	A *model.Channel
+	B *model.AppError
+}
+
+func (g *apiRPCClient) GetSpaceBackingChannel(channelId string) (*model.Channel, *model.AppError) {
+	_args := &Z_GetSpaceBackingChannelArgs{channelId}
+	_returns := &Z_GetSpaceBackingChannelReturns{}
+	if err := g.client.Call("Plugin.GetSpaceBackingChannel", _args, _returns); err != nil {
+		log.Printf("RPC call to GetSpaceBackingChannel API failed: %s", err.Error())
+	}
+	return _returns.A, _returns.B
+}
+
+func (s *apiRPCServer) GetSpaceBackingChannel(args *Z_GetSpaceBackingChannelArgs, returns *Z_GetSpaceBackingChannelReturns) error {
+	if hook, ok := s.impl.(interface {
+		GetSpaceBackingChannel(channelId string) (*model.Channel, *model.AppError)
+	}); ok {
+		returns.A, returns.B = hook.GetSpaceBackingChannel(args.A)
+	} else {
+		return encodableError(fmt.Errorf("API GetSpaceBackingChannel called but not implemented."))
+	}
+	return nil
+}
+
 type Z_GetPublicChannelsForTeamArgs struct {
 	A string
 	B int

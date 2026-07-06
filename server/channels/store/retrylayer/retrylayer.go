@@ -2901,6 +2901,27 @@ func (s *RetryLayerChannelStore) GetSidebarCategoryOrder(userID string, teamID s
 
 }
 
+func (s *RetryLayerChannelStore) GetSpaceBackingChannel(id string) (*model.Channel, error) {
+
+	tries := 0
+	for {
+		result, err := s.ChannelStore.GetSpaceBackingChannel(id)
+		if err == nil {
+			return result, nil
+		}
+		if !isRepeatableError(err) {
+			return result, err
+		}
+		tries++
+		if tries >= 3 {
+			err = errors.Wrap(err, "giving up after 3 consecutive repeatable transaction failures")
+			return result, err
+		}
+		timepkg.Sleep(100 * timepkg.Millisecond)
+	}
+
+}
+
 func (s *RetryLayerChannelStore) GetTeamChannels(teamID string) (model.ChannelList, error) {
 
 	tries := 0
@@ -2969,6 +2990,27 @@ func (s *RetryLayerChannelStore) GetTeamMembersForChannel(rctx request.CTX, chan
 	tries := 0
 	for {
 		result, err := s.ChannelStore.GetTeamMembersForChannel(rctx, channelID)
+		if err == nil {
+			return result, nil
+		}
+		if !isRepeatableError(err) {
+			return result, err
+		}
+		tries++
+		if tries >= 3 {
+			err = errors.Wrap(err, "giving up after 3 consecutive repeatable transaction failures")
+			return result, err
+		}
+		timepkg.Sleep(100 * timepkg.Millisecond)
+	}
+
+}
+
+func (s *RetryLayerChannelStore) GetTeamSpaceChannels(teamID string) (model.ChannelList, error) {
+
+	tries := 0
+	for {
+		result, err := s.ChannelStore.GetTeamSpaceChannels(teamID)
 		if err == nil {
 			return result, nil
 		}

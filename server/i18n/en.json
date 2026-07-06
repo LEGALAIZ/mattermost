@@ -756,20 +756,12 @@
     "translation": "The default channel cannot be made private."
   },
   {
-    "id": "api.channel.update_channel_privacy.type.invalid",
-    "translation": "Only public and private channels can have their privacy changed."
-  },
-  {
     "id": "api.channel.update_channel_scheme.license.error",
     "translation": "Your license does not support updating a channel's scheme"
   },
   {
     "id": "api.channel.update_channel_scheme.scheme_scope.error",
     "translation": "Unable to set the scheme to the channel because the supplied scheme is not a channel scheme."
-  },
-  {
-    "id": "api.channel.update_channel_scheme.space.app_error",
-    "translation": "Spaces cannot have their scheme changed through this endpoint."
   },
   {
     "id": "api.channel.update_team_member_roles.changing_guest_role.app_error",
@@ -5629,10 +5621,6 @@
   {
     "id": "app.channel.delete_channel.rejected_by_plugin",
     "translation": "Channel archive rejected by plugin: {{.Reason}}"
-  },
-  {
-    "id": "app.channel.delete_channel.space.app_error",
-    "translation": "Spaces cannot be deleted through this endpoint."
   },
   {
     "id": "app.channel.get.app_error",

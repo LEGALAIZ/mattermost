@@ -803,6 +803,44 @@ func TestPermanentDeleteTeam(t *testing.T) {
 	}
 }
 
+func TestPermanentDeleteTeamRemovesSpaceChannels(t *testing.T) {
+	mainHelper.Parallel(t)
+	th := Setup(t).InitBasic(t)
+
+	team := th.CreateTeam(t)
+
+	// Space backing channels are excluded from GetTeamChannels, so team teardown must clean them
+	// up through the dedicated path or they orphan with a dead TeamId.
+	space, nErr := th.App.Srv().Store().Channel().Save(th.Context, &model.Channel{
+		TeamId:      team.Id,
+		DisplayName: "Space",
+		Name:        "space-" + model.NewId(),
+		Type:        model.ChannelTypeSpace,
+	}, -1)
+	require.NoError(t, nErr)
+
+	_, nErr = th.App.Srv().Store().Channel().SaveMember(th.Context, &model.ChannelMember{
+		ChannelId:   space.Id,
+		UserId:      th.BasicUser.Id,
+		NotifyProps: model.GetDefaultChannelNotifyProps(),
+		SchemeUser:  true,
+	})
+	require.NoError(t, nErr)
+
+	// Sanity: the space backing channel resolves through the dedicated path before deletion.
+	_, appErr := th.App.GetSpaceBackingChannel(th.Context, space.Id)
+	require.Nil(t, appErr)
+
+	appErr = th.App.PermanentDeleteTeam(th.Context, team)
+	require.Nil(t, appErr)
+
+	_, getErr := th.App.Srv().Store().Channel().Get(space.Id, false)
+	require.Error(t, getErr, "space backing channel should be permanently deleted with its team")
+
+	_, memErr := th.App.Srv().Store().Channel().GetMember(th.Context, space.Id, th.BasicUser.Id)
+	require.Error(t, memErr, "space channel membership should be removed with its team")
+}
+
 func TestSanitizeTeam(t *testing.T) {
 	mainHelper.Parallel(t)
 	th := Setup(t)

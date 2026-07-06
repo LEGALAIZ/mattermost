@@ -133,6 +133,16 @@ func (c *ChannelService) Restore(channelID string) error {
 	return normalizeAppErr(c.api.RestoreChannel(channelID))
 }
 
+// GetSpaceBackingChannel resolves a space ("S") backing channel by ID. The generic Get
+// excludes space channels; docs/spaces plugins that manage them use this dedicated resolver.
+//
+// Minimum server version: 11.9
+func (c *ChannelService) GetSpaceBackingChannel(channelID string) (*model.Channel, error) {
+	channel, appErr := c.api.GetSpaceBackingChannel(channelID)
+
+	return channel, normalizeAppErr(appErr)
+}
+
 // GetChannelStats gets statistics for a channel.
 //
 // Minimum server version: 5.6

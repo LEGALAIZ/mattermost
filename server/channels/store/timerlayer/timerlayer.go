@@ -2423,6 +2423,22 @@ func (s *TimerLayerChannelStore) GetSidebarCategoryOrder(userID string, teamID s
 	return result, err
 }
 
+func (s *TimerLayerChannelStore) GetSpaceBackingChannel(id string) (*model.Channel, error) {
+	start := time.Now()
+
+	result, err := s.ChannelStore.GetSpaceBackingChannel(id)
+
+	elapsed := float64(time.Since(start)) / float64(time.Second)
+	if s.Root.Metrics != nil {
+		success := "false"
+		if err == nil {
+			success = "true"
+		}
+		s.Root.Metrics.ObserveStoreMethodDuration("ChannelStore.GetSpaceBackingChannel", success, elapsed)
+	}
+	return result, err
+}
+
 func (s *TimerLayerChannelStore) GetTeamChannels(teamID string) (model.ChannelList, error) {
 	start := time.Now()
 
@@ -2483,6 +2499,22 @@ func (s *TimerLayerChannelStore) GetTeamMembersForChannel(rctx request.CTX, chan
 			success = "true"
 		}
 		s.Root.Metrics.ObserveStoreMethodDuration("ChannelStore.GetTeamMembersForChannel", success, elapsed)
+	}
+	return result, err
+}
+
+func (s *TimerLayerChannelStore) GetTeamSpaceChannels(teamID string) (model.ChannelList, error) {
+	start := time.Now()
+
+	result, err := s.ChannelStore.GetTeamSpaceChannels(teamID)
+
+	elapsed := float64(time.Since(start)) / float64(time.Second)
+	if s.Root.Metrics != nil {
+		success := "false"
+		if err == nil {
+			success = "true"
+		}
+		s.Root.Metrics.ObserveStoreMethodDuration("ChannelStore.GetTeamSpaceChannels", success, elapsed)
 	}
 	return result, err
 }
