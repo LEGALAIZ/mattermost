@@ -10,22 +10,6 @@ import type {Locator} from '@playwright/test';
 
 import {expect, type ChannelsPage, type PlaywrightExtended} from '@mattermost/playwright-lib';
 
-export async function createPublicChannel(
-    pw: PlaywrightExtended,
-    adminClient: Client4,
-    team: Team,
-    displayName: string,
-) {
-    return adminClient.createChannel(
-        pw.random.channel({
-            teamId: team.id,
-            name: displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            displayName,
-            unique: true,
-        }),
-    );
-}
-
 export async function createUsers(
     pw: PlaywrightExtended,
     adminClient: Client4,

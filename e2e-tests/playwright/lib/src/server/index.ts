@@ -2,7 +2,7 @@
 // See LICENSE.txt for license information.
 
 export {makeClient} from './client';
-export {createRandomChannel} from './channel';
+export {createRandomChannel, createPublicChannel} from './channel';
 export {getOnPremServerConfig, mergeWithOnPremServerConfig} from './default_config';
 export {initSetup, getAdminClient} from './init';
 export {createRandomPost} from './post';

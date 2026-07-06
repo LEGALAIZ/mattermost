@@ -3,7 +3,7 @@
 
 import {expect, test} from '@mattermost/playwright-lib';
 
-import {createPost, createPublicChannel, createUsers, expectSidebarUnread} from '../migration_helpers';
+import {createPost, createUsers, expectSidebarUnread} from '../migration_helpers';
 
 /**
  * @objective Verify disabling "Ignore mentions" counts @channel, @here, and @all as mentions.
@@ -14,8 +14,8 @@ import {createPost, createPublicChannel, createUsers, expectSidebarUnread} from 
 test('MM-T568 Channel Notifications turn off Ignore mentions for @channel, @here and @all', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
     const [sender] = await createUsers(pw, adminClient, team, 1, 'channel-mentions');
-    const channelA = await createPublicChannel(pw, adminClient, team, 'Mention Source');
-    const channelB = await createPublicChannel(pw, adminClient, team, 'Mention Away');
+    const channelA = await pw.createPublicChannel(adminClient, team.id, 'Mention Source');
+    const channelB = await pw.createPublicChannel(adminClient, team.id, 'Mention Away');
     await adminClient.addToChannel(user.id, channelA.id);
     await adminClient.addToChannel(user.id, channelB.id);
     await adminClient.addToChannel(sender.id, channelA.id);
