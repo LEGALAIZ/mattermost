@@ -13,9 +13,9 @@ import {createPost, createPublicChannel, createUsers, expectSidebarUnread} from 
  */
 test('MM-T568 Channel Notifications turn off Ignore mentions for @channel, @here and @all', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
-    const [sender] = await createUsers(pw, adminClient, team, 1, 'rfqa-channel-mentions');
-    const channelA = await createPublicChannel(pw, adminClient, team, 'RFQA Mention Source');
-    const channelB = await createPublicChannel(pw, adminClient, team, 'RFQA Mention Away');
+    const [sender] = await createUsers(pw, adminClient, team, 1, 'channel-mentions');
+    const channelA = await createPublicChannel(pw, adminClient, team, 'Mention Source');
+    const channelB = await createPublicChannel(pw, adminClient, team, 'Mention Away');
     await adminClient.addToChannel(user.id, channelA.id);
     await adminClient.addToChannel(user.id, channelB.id);
     await adminClient.addToChannel(sender.id, channelA.id);

@@ -13,7 +13,7 @@ import {createPost, createUsers, openDirectMessagesModal, selectUsersForDirectMe
  */
 test('MM-T460 Add and remove users while creating new Group Message', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
-    const participants = await createUsers(pw, adminClient, team, 3, 'rfqa-gm-edit');
+    const participants = await createUsers(pw, adminClient, team, 3, 'gm-edit');
 
     // # Open the Direct Messages modal and select two users
     const {channelsPage} = await pw.testBrowser.login(user);
@@ -44,7 +44,7 @@ test('MM-T460 Add and remove users while creating new Group Message', async ({pw
  */
 test('MM-T465 Create a group message and show participant details', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
-    const participants = await createUsers(pw, adminClient, team, 2, 'rfqa-gm-intro');
+    const participants = await createUsers(pw, adminClient, team, 2, 'gm-intro');
 
     // # Create a group message from the Direct Messages modal
     const {channelsPage, page} = await pw.testBrowser.login(user);
@@ -76,7 +76,7 @@ test('MM-T465 Create a group message and show participant details', async ({pw})
  */
 test('MM-T469 Create a group message and post a mention for another user', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
-    const [sender, secondParticipant] = await createUsers(pw, adminClient, team, 2, 'rfqa-gm-mention');
+    const [sender, secondParticipant] = await createUsers(pw, adminClient, team, 2, 'gm-mention');
     const gmChannel = await adminClient.createGroupChannel([user.id, sender.id, secondParticipant.id]);
 
     // # View another channel, then have a participant mention the test user in the GM
@@ -100,7 +100,7 @@ test('MM-T469 Create a group message and post a mention for another user', async
  */
 test('MM-T475 Group Message Channel Preferences Mute channel', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
-    const [sender, secondParticipant] = await createUsers(pw, adminClient, team, 2, 'rfqa-gm-mute');
+    const [sender, secondParticipant] = await createUsers(pw, adminClient, team, 2, 'gm-mute');
     const gmChannel = await adminClient.createGroupChannel([user.id, sender.id, secondParticipant.id]);
 
     // # Open the GM and mute it through notification preferences
@@ -130,7 +130,7 @@ test('MM-T475 Group Message Channel Preferences Mute channel', async ({pw}) => {
  */
 test('MM-T478 Closing group message channels and re-opening via Direct Messages modal', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
-    const participants = await createUsers(pw, adminClient, team, 2, 'rfqa-gm-reopen');
+    const participants = await createUsers(pw, adminClient, team, 2, 'gm-reopen');
     const gmChannel = await adminClient.createGroupChannel([user.id, participants[0].id, participants[1].id]);
 
     // # Open then close the group message conversation

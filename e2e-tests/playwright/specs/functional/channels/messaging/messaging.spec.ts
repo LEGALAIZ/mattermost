@@ -13,14 +13,14 @@ import {createPost, createPublicChannel, createUsers} from '../migration_helpers
  */
 test('MM-T94 RHS fetches messages on reconnect while a different channel is in center', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
-    const [author] = await createUsers(pw, adminClient, team, 1, 'rfqa-rhs-author');
-    const threadChannel = await createPublicChannel(pw, adminClient, team, 'RFQA RHS Reconnect');
+    const [author] = await createUsers(pw, adminClient, team, 1, 'reconnect-author');
+    const threadChannel = await createPublicChannel(pw, adminClient, team, 'RHS Reconnect');
     const offTopic = await adminClient.getChannelByName(team.id, 'off-topic');
     await adminClient.addToChannel(user.id, threadChannel.id);
     await adminClient.addToChannel(author.id, threadChannel.id);
 
     // # Open a thread in the RHS and add an initial reply
-    const root = await createPost(adminClient, author, threadChannel, 'rfqa reconnect root');
+    const root = await createPost(adminClient, author, threadChannel, 'reconnect root');
     const {channelsPage, page} = await pw.testBrowser.login(user);
     await channelsPage.goto(team.name, threadChannel.name);
     await channelsPage.toBeVisible();
@@ -79,7 +79,7 @@ test('MM-T95 Selecting an emoji from emoji picker should insert it at the cursor
  */
 test('MM-T175 Channel short-linking still works when placed in brackets', async ({pw}) => {
     const {adminClient, team, user} = await pw.initSetup();
-    const linkedChannel = await createPublicChannel(pw, adminClient, team, 'RFQA Shortlink Target');
+    const linkedChannel = await createPublicChannel(pw, adminClient, team, 'Shortlink Target');
     await adminClient.addToChannel(user.id, linkedChannel.id);
 
     // # Post a bracketed channel shortlink from a different channel

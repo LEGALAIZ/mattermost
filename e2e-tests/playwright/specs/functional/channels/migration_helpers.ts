@@ -31,7 +31,7 @@ export async function createUsers(
     adminClient: Client4,
     team: Team,
     count: number,
-    prefix = 'rfqa-user',
+    prefix = 'user',
 ) {
     const users: UserProfile[] = [];
 
