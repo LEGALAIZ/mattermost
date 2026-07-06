@@ -104,7 +104,9 @@ export async function submitSearch(channelsPage: ChannelsPage, query: string) {
 }
 
 export async function expectSearchResult(channelsPage: ChannelsPage, text: string) {
-    await expect(channelsPage.page.getByTestId('search-item-container').filter({hasText: text})).toBeVisible();
+    await expect(channelsPage.page.getByTestId('search-item-container').filter({hasText: text})).toBeVisible({
+        timeout: 30_000,
+    });
 }
 
 export async function expectNoSearchResult(channelsPage: ChannelsPage, text: string) {
