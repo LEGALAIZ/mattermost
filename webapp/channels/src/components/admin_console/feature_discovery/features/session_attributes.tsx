@@ -23,7 +23,7 @@ const SessionAttributesFeatureDiscovery: React.FC = () => {
                 id: 'admin.session_attributes_feature_discovery.desc',
                 defaultMessage: 'Define and tune session attributes such as network status, client type, and device posture for use in attribute-based access control policies.',
             })}
-            learnMoreURL='https://docs.mattermost.com/manage/admin/session-attributes.html'
+            learnMoreURL='https://docs.mattermost.com/administration-guide/manage/admin/attribute-based-access-control.html'
             featureDiscoveryImage={
                 <GroupsSVG
                     width={294}
