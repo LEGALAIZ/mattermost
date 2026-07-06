@@ -5,7 +5,7 @@ import React from 'react';
 import {FormattedMessage, useIntl} from 'react-intl';
 import {useDispatch} from 'react-redux';
 
-import {CancelIcon, CheckIcon, CheckCircleOutlineIcon, ChevronRightIcon, ClockOutlineIcon, ClockSendOutlineIcon, DotsVerticalIcon} from '@mattermost/compass-icons/components';
+import {AlertCircleOutlineIcon, CancelIcon, CheckIcon, CheckCircleOutlineIcon, ChevronRightIcon, DotsVerticalIcon, UpdateIcon} from '@mattermost/compass-icons/components';
 
 import {openModal} from 'actions/views/modals';
 
@@ -79,7 +79,7 @@ export default function SessionAttributesDotMenu({field, onStageChange}: Props) 
             <Menu.SubMenu
                 id={`${menuId}-ttl`}
                 menuId={`${menuId}-ttl-menu`}
-                leadingElement={<ClockOutlineIcon size={18}/>}
+                leadingElement={<UpdateIcon size={18}/>}
                 labels={(
                     <FormattedMessage
                         id='admin.session_attributes.dotmenu.ttl.label'
@@ -98,7 +98,7 @@ export default function SessionAttributesDotMenu({field, onStageChange}: Props) 
             <Menu.SubMenu
                 id={`${menuId}-grace`}
                 menuId={`${menuId}-grace-menu`}
-                leadingElement={<ClockSendOutlineIcon size={18}/>}
+                leadingElement={<AlertCircleOutlineIcon size={18}/>}
                 labels={(
                     <FormattedMessage
                         id='admin.session_attributes.dotmenu.grace.label'

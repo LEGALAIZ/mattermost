@@ -14,8 +14,7 @@ import {getSessionAttrs, SESSION_ATTRIBUTES_TARGET_TYPE} from 'components/admin_
 
 import type {GlobalState} from 'types/store';
 
-// Frozen module-level empty array keeps a stable reference across renders so
-// consumers that memoize on this value don't re-run when there's nothing to merge.
+// Stable reference so memoized consumers don't re-run when there's nothing to merge.
 const EMPTY_FIELDS: UserPropertyField[] = [];
 
 // Fetches the session-attribute property group once and returns the ENABLED

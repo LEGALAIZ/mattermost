@@ -168,8 +168,11 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
                 enableSorting: false,
             }),
             columnHelper.display({
-                id: 'status',
-                size: 120,
+                // Not named 'status' because that class name collides with the
+                // global user status indicator styles (see _status-icon.scss),
+                // which add unwanted margin to this column.
+                id: 'sessionStatus',
+                size: 104,
                 header: () => (
                     <ColHeaderLeft>
                         <FormattedMessage
@@ -186,7 +189,7 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
             }),
             columnHelper.display({
                 id: 'actions',
-                size: 40,
+                size: 56,
                 header: () => (
                     <ColHeaderRight>
                         <FormattedMessage
@@ -219,10 +222,11 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
         renderFallbackValue: '',
         meta: {tableId: 'sessionAttributes', disablePaginationControls: true},
         manualPagination: true,
+        enableColumnPinning: false,
     });
 
     return (
-        <TableWrapper>
+        <TableWrapper $minWidth={table.getTotalSize()}>
             <AdminConsoleListTable<SessionAttributeField> table={table}/>
         </TableWrapper>
     );
@@ -236,12 +240,20 @@ const typeLabels = defineMessages({
     Enum: {id: 'admin.session_attributes.type.enum', defaultMessage: 'Enum'},
 });
 
-const TableWrapper = styled.div`
+const TableWrapper = styled.div<{$minWidth: number}>`
+    .adminConsoleListTableContainer {
+        overflow-x: auto;
+        padding: 2px 0;
+    }
+
     table.adminConsoleListTable {
+        width: max-content;
+        max-width: 100%;
+        min-width: ${({$minWidth}) => $minWidth}px;
 
         td, th {
             &:after, &:before {
-                display: none;
+                display: none !important;
             }
         }
 
@@ -249,7 +261,7 @@ const TableWrapper = styled.div`
             border-top: none;
             border-bottom: 1px solid rgba(var(--center-channel-color-rgb), 0.08);
             tr {
-                th.pinned {
+                th {
                     background: rgba(var(--center-channel-color-rgb), 0.04);
                     padding-block-end: 8px;
                     padding-block-start: 8px;
@@ -266,9 +278,6 @@ const TableWrapper = styled.div`
                     &:last-child {
                         padding-inline-end: 12px;
                     }
-                    &.pinned {
-                        background: none;
-                    }
                 }
             }
         }
@@ -276,9 +285,6 @@ const TableWrapper = styled.div`
         tfoot {
             border-top: none;
         }
-    }
-    .adminConsoleListTableContainer {
-        padding: 2px 0px;
     }
 `;
 

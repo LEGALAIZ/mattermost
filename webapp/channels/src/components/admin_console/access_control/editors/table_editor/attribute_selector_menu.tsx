@@ -207,7 +207,7 @@ const AttributeSelectorMenu = ({currentAttribute, currentAttributeObjectType, av
                                 <PlatformIcon
                                     key={platform}
                                     size={16}
-                                    color='rgba(var(--center-channel-color-rgb), 0.5)'
+                                    color='var(--button-bg)'
                                 />
                             ) : null;
                         })}

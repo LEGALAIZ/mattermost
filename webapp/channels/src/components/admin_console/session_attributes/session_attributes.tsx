@@ -24,7 +24,7 @@ import {SESSION_ATTRIBUTES_TARGET_TYPE} from './utils';
 import type {SessionAttributeField} from './utils';
 
 import SaveChangesPanel from '../save_changes_panel';
-import {AdminSection, AdminWrapper, DangerText, SectionContent, SectionHeader, SectionHeading} from '../system_properties/controls';
+import {AdminSection, DangerText, SectionContent, SectionHeader, SectionHeading} from '../system_properties/controls';
 import type {SearchableStrings} from '../types';
 
 type Props = {
@@ -72,28 +72,30 @@ export default function SessionAttributesPage(props: Props) {
             <AdminHeader>
                 <FormattedMessage {...msg.pageTitle}/>
             </AdminHeader>
-            <AdminWrapper>
-                <AdminSection data-testid='session_attributes'>
-                    <SectionHeader>
-                        <hgroup>
-                            <FormattedMessage
-                                tagName={SectionHeading}
-                                id='admin.session_attributes.configure.title'
-                                defaultMessage='Configure session attributes'
-                            />
-                            <FormattedMessage
-                                id='admin.session_attributes.configure.subtitle'
-                                defaultMessage='Session attributes are evaluated per session and can be used in access control policies.'
-                            />
-                        </hgroup>
-                    </SectionHeader>
-                    <SectionContent $compact={true}>
-                        <TableRegion aria-disabled={props.disabled}>
-                            {renderRegion(loaded, edits)}
-                        </TableRegion>
-                    </SectionContent>
-                </AdminSection>
-            </AdminWrapper>
+            <div className='admin-console__wrapper'>
+                <SessionAttributesAdminContent>
+                    <AdminSection data-testid='session_attributes'>
+                        <SectionHeader>
+                            <hgroup>
+                                <FormattedMessage
+                                    tagName={SectionHeading}
+                                    id='admin.session_attributes.configure.title'
+                                    defaultMessage='Configure session attributes'
+                                />
+                                <FormattedMessage
+                                    id='admin.session_attributes.configure.subtitle'
+                                    defaultMessage='Session attributes are evaluated per session and can be used in access control policies.'
+                                />
+                            </hgroup>
+                        </SectionHeader>
+                        <SectionContent $compact={true}>
+                            <TableRegion aria-disabled={props.disabled}>
+                                {renderRegion(loaded, edits)}
+                            </TableRegion>
+                        </SectionContent>
+                    </AdminSection>
+                </SessionAttributesAdminContent>
+            </div>
             <SaveChangesPanel
                 saving={edits.saving}
                 saveNeeded={edits.hasChanges}
@@ -143,8 +145,15 @@ const msg = defineMessages({
 
 export const searchableStrings: SearchableStrings = Object.values(msg);
 
+const SessionAttributesAdminContent = styled.div.attrs({className: 'admin-console__content'})`
+    &&& {
+        max-width: none;
+    }
+`;
+
 const TableRegion = styled.div`
     width: 100%;
+    min-width: 0;
 `;
 
 const EmptyState = styled.div`

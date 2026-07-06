@@ -39,6 +39,7 @@ export default function PlatformIcons({platforms}: Props) {
                     >
                         <Icon
                             size={18}
+                            color={active ? 'var(--button-bg)' : 'rgba(var(--center-channel-color-rgb), 0.32)'}
                             aria-label={formatMessage(platformLabels[platform])}
                         />
                     </IconSlot>
@@ -57,12 +58,14 @@ const platformLabels = defineMessages({
 const Row = styled.span`
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
 `;
 
 const IconSlot = styled.span<{$active: boolean}>`
     display: inline-flex;
     align-items: center;
-    color: var(--center-channel-color);
-    opacity: ${({$active}) => ($active ? 1 : 0.32)};
+    justify-content: center;
+    padding: 6px;
+    border-radius: 4px;
+    background: ${({$active}) => ($active ? 'var(--button-bg-08, rgba(var(--button-bg-rgb), 0.08))' : 'transparent')};
 `;
