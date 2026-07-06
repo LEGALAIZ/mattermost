@@ -9597,7 +9597,8 @@ func testGetTeamChannelsWithUnreadAndMentions(t *testing.T, rctx request.CTX, ss
 }
 
 // testChannelStoreSpaceExclusion verifies the ChannelTypeSpace ("S") backing-channel contract:
-//   - resolvable by id (Get/GetMany) so post operations on a page comment can load its channel;
+//   - opaque to the generic by-id reads (Get/GetMany); docs/spaces code resolves it only through
+//     the dedicated GetSpaceBackingChannel;
 //   - resolvable in the per-user authorization membership map (GetAllChannelMembersForUser) so a
 //     space member is authorized for the backing channel;
 //   - excluded from aggregate/analytics and client-facing member listings so it never leaks into
@@ -9613,18 +9614,20 @@ func testChannelStoreSpaceExclusion(t *testing.T, rctx request.CTX, ss store.Sto
 	_, err = ss.Channel().Save(rctx, space, -1)
 	require.NoError(t, err)
 
-	// By-id reads resolve a space backing channel, both directly and through the cache.
-	got, err := ss.Channel().Get(space.Id, false)
+	// Space backing channels are opaque to the generic by-id reads and resolve only through
+	// the dedicated GetSpaceBackingChannel path.
+	_, err = ss.Channel().Get(space.Id, false)
+	var nfErr *store.ErrNotFound
+	require.True(t, errors.As(err, &nfErr), "Get must exclude space channels")
+
+	got, err := ss.Channel().GetSpaceBackingChannel(space.Id)
 	require.NoError(t, err)
 	require.Equal(t, model.ChannelTypeSpace, got.Type)
 
-	cached, err := ss.Channel().Get(space.Id, true)
-	require.NoError(t, err)
-	require.Equal(t, model.ChannelTypeSpace, cached.Type)
-
 	many, err := ss.Channel().GetMany([]string{open.Id, space.Id}, false)
 	require.NoError(t, err)
-	require.Len(t, many, 2)
+	require.Len(t, many, 1, "GetMany must exclude space channels")
+	require.Equal(t, open.Id, many[0].Id)
 
 	// GetChannelsByIds is restricted to message-bearing types, so it excludes space channels.
 	byIds, err := ss.Channel().GetChannelsByIds([]string{open.Id, space.Id}, false)

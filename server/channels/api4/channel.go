@@ -28,11 +28,9 @@ func rejectBoardChannelByID(c *Context, channelId string) bool {
 	return false
 }
 
-// rejectSpaceChannelByID returns true and sets c.Err if the channel ID belongs to a space
-// backing channel. Space channels are excluded from the generic Get, so this resolves them
-// through the dedicated GetSpaceBackingChannel path. Use this on write endpoints that operate
-// on a channel by ID without fetching and type-checking the channel themselves (which would
-// otherwise let a space member mutate the hidden backing channel's member/view rows).
+// rejectSpaceChannelByID returns true and sets c.Err when the channel ID resolves to a space
+// backing channel. Use it on write endpoints that mutate a channel by ID without fetching and
+// type-checking it, which would otherwise let a space member mutate the hidden backing channel.
 func rejectSpaceChannelByID(c *Context, channelId string) bool {
 	if _, err := c.App.GetSpaceBackingChannel(c.AppContext, channelId); err == nil {
 		c.Err = model.NewAppError("", "api.channel.space_channel.app_error", nil, "space channels cannot be accessed via /channels endpoints", http.StatusBadRequest)

@@ -7827,11 +7827,8 @@ func addUserToSpaceChannel(t *testing.T, th *TestHelper, space *model.Channel, u
 }
 
 // TestChannelEndpointsExcludeSpaces mirrors TestChannelEndpointsExcludeBoards for the space ("S")
-// backing-channel type: like boards, a space channel is excluded from the generic Get/GetMany and
-// 404s on every /channels endpoint, and never leaks into any list, search, or by-name surface.
-// Space channels resolve only through the dedicated GetSpaceBackingChannel path (used by the docs
-// plugin). Endpoints that operate on member/view rows by ID without resolving the channel are
-// guarded explicitly via rejectSpaceChannelByID (which uses that dedicated resolver).
+// backing-channel type: it 404s on every /channels endpoint and never leaks into any list, search,
+// or by-name surface, except where rejectSpaceChannelByID guards a member/view-mutation endpoint.
 func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 	mainHelper.Parallel(t)
 	th := Setup(t).InitBasic(t)
@@ -8078,8 +8075,6 @@ func TestChannelEndpointsExcludeSpaces(t *testing.T) {
 	})
 }
 
-// TestLocalChannelEndpointsRejectSpaces mirrors the REST rejections for the local (admin socket)
-// channel endpoints, which route through their own handlers and must reject S just like /api/v4.
 // TestLocalChannelEndpoints404Spaces verifies the local (admin socket) channel endpoints 404 a
 // space, the same as /api/v4: space channels are excluded from the generic GetChannel these
 // handlers resolve through, so they never reach the mutation.

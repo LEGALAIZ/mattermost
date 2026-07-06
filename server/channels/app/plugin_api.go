@@ -509,10 +509,8 @@ func (api *PluginAPI) GetSpaceBackingChannel(channelID string) (*model.Channel, 
 	return api.app.GetSpaceBackingChannel(api.ctx, channelID)
 }
 
-// resolveManagedChannel resolves a channel by ID for the space-lifecycle operations below
-// (delete/restore/member-add), which the docs plugin invokes on space backing channels.
-// Generic GetChannel excludes space channels, so fall back to the dedicated resolver on
-// not-found. Distinct from GetChannel, which stays a pure generic lookup.
+// resolveManagedChannel resolves a channel by ID for the docs-plugin space-lifecycle operations
+// below (delete/restore/member-add), falling back to GetSpaceBackingChannel since GetChannel 404s spaces.
 func (api *PluginAPI) resolveManagedChannel(channelID string) (*model.Channel, *model.AppError) {
 	channel, err := api.app.GetChannel(api.ctx, channelID)
 	if err != nil && err.StatusCode == http.StatusNotFound {

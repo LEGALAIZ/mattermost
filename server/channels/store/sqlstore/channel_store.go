@@ -43,11 +43,9 @@ var messageChannelTypes = []model.ChannelType{
 	model.ChannelTypeGroup,
 }
 
-// nonMessageBackingChannelTypes is the deny-list applied to queries that don't
-// already filter through the messageChannelTypes allow-list (e.g. because they
-// also need to include board channels' membership rows). Adding a new
-// non-message backing channel type here excludes it from every query that
-// references this var, instead of requiring each query to be re-audited.
+// nonMessageBackingChannelTypes is the deny-list applied to queries that don't already filter
+// through the messageChannelTypes allow-list (e.g. because they also need board channels'
+// membership rows). Adding a new type here excludes it from every query that references this var.
 var nonMessageBackingChannelTypes = []model.ChannelType{
 	model.ChannelTypeSpace,
 }
@@ -1574,10 +1572,9 @@ func (s SqlChannelStore) GetTeamChannels(teamId string) (model.ChannelList, erro
 	return data, nil
 }
 
-// GetTeamSpaceChannels returns all space (S) backing channels for a team, including archived
-// ones, so team teardown can permanently remove them. Space channels are excluded from
-// GetTeamChannels/GetAll, so they need a dedicated enumerator here. Returns an empty list
-// (not ErrNotFound) when the team has no spaces.
+// GetTeamSpaceChannels returns all space (S) channels for a team, including archived ones, so
+// team teardown can remove them. GetTeamChannels/GetAll exclude spaces, hence this dedicated
+// enumerator. Returns an empty list (not ErrNotFound) when the team has no spaces.
 func (s SqlChannelStore) GetTeamSpaceChannels(teamId string) (model.ChannelList, error) {
 	data := model.ChannelList{}
 	query := s.tableSelectQuery.Where(sq.And{
