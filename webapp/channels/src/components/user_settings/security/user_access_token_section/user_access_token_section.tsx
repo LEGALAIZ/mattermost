@@ -686,6 +686,12 @@ class UserAccessTokenSection extends React.PureComponent<Props, State> {
                                 defaultMessage={'The current secret for this token will stop working immediately. Any integrations using it will need to be updated with the new secret. You cannot undo this action.'}
                             />
                         </div>
+                        {this.renderExpiryPicker('regenerateToken', preset, customDate, this.handleRegenerateExpiryPresetChange, this.handleRegenerateCustomExpiryChange)}
+                        {expiryError && (
+                            <div className='has-error mt-2'>
+                                {expiryError}
+                            </div>
+                        )}
                         <p className='pt-3'>
                             <FormattedMessage
                                 id='user.settings.tokens.confirmRegenerate.confirmation'
@@ -696,12 +702,6 @@ class UserAccessTokenSection extends React.PureComponent<Props, State> {
                                 }}
                             />
                         </p>
-                        {this.renderExpiryPicker('regenerateToken', preset, customDate, this.handleRegenerateExpiryPresetChange, this.handleRegenerateCustomExpiryChange)}
-                        {expiryError && (
-                            <div className='has-error mt-2'>
-                                {expiryError}
-                            </div>
-                        )}
                     </div>
                 );
             },
