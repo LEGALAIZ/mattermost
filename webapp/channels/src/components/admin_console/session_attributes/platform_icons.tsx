@@ -4,12 +4,13 @@
 import type {ComponentType} from 'react';
 import React from 'react';
 import {defineMessages, useIntl} from 'react-intl';
-import styled from 'styled-components';
 
 import {MonitorIcon, CellphoneIcon, GlobeIcon} from '@mattermost/compass-icons/components';
 import type IconProps from '@mattermost/compass-icons/components/props';
 
 import {SESSION_PLATFORMS, type SessionPlatform} from './utils';
+
+import './session_attributes.scss';
 
 const ICONS: Record<SessionPlatform, ComponentType<IconProps>> = {
     desktop: MonitorIcon,
@@ -25,27 +26,29 @@ export default function PlatformIcons({platforms}: Props) {
     const {formatMessage} = useIntl();
 
     return (
-        <Row data-testid='session-attribute-platforms'>
+        <span
+            className='SessionAttributes__platforms'
+            data-testid='session-attribute-platforms'
+        >
             {SESSION_PLATFORMS.map((platform) => {
                 const Icon = ICONS[platform];
                 const active = platforms.includes(platform);
 
                 return (
-                    <IconSlot
+                    <span
                         key={platform}
-                        $active={active}
+                        className='SessionAttributes__platform-slot'
                         data-platform={platform}
                         data-active={active}
                     >
                         <Icon
                             size={18}
-                            color={active ? 'var(--button-bg)' : 'rgba(var(--center-channel-color-rgb), 0.32)'}
                             aria-label={formatMessage(platformLabels[platform])}
                         />
-                    </IconSlot>
+                    </span>
                 );
             })}
-        </Row>
+        </span>
     );
 }
 
@@ -54,18 +57,3 @@ const platformLabels = defineMessages({
     mobile: {id: 'admin.session_attributes.platform.mobile', defaultMessage: 'Mobile'},
     browser: {id: 'admin.session_attributes.platform.browser', defaultMessage: 'Browser'},
 });
-
-const Row = styled.span`
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-`;
-
-const IconSlot = styled.span<{$active: boolean}>`
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px;
-    border-radius: 4px;
-    background: ${({$active}) => ($active ? 'var(--button-bg-08, rgba(var(--button-bg-rgb), 0.08))' : 'transparent')};
-`;

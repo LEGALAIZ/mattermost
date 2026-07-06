@@ -3,9 +3,10 @@
 
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
-import styled from 'styled-components';
 
 import {CheckCircleIcon, CloseCircleIcon} from '@mattermost/compass-icons/components';
+
+import './session_attributes.scss';
 
 type Props = {
     enabled: boolean;
@@ -13,8 +14,8 @@ type Props = {
 
 export default function StatusChip({enabled}: Props) {
     return (
-        <Chip
-            $enabled={enabled}
+        <span
+            className='SessionAttributes__status-chip'
             data-testid='session-attribute-status'
             data-enabled={enabled}
         >
@@ -34,19 +35,6 @@ export default function StatusChip({enabled}: Props) {
                     defaultMessage='Disabled'
                 />
             )}
-        </Chip>
+        </span>
     );
 }
-
-const Chip = styled.span<{$enabled: boolean}>`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: ${({$enabled}) => ($enabled ? 'var(--center-channel-color)' : 'rgba(var(--center-channel-color-rgb), 0.64)')};
-
-    svg {
-        color: ${({$enabled}) => ($enabled ? 'var(--online-indicator)' : 'rgba(var(--center-channel-color-rgb), 0.48)')};
-    }
-`;

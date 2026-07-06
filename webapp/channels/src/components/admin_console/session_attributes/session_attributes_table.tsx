@@ -2,10 +2,9 @@
 // See LICENSE.txt for license information.
 
 import {createColumnHelper, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef} from '@tanstack/react-table';
-import type {ComponentType} from 'react';
+import type {ComponentType, CSSProperties} from 'react';
 import React, {useMemo} from 'react';
 import {FormattedMessage, defineMessages} from 'react-intl';
-import styled from 'styled-components';
 
 import {CheckboxMarkedCircleOutlineIcon, ChevronDownCircleOutlineIcon, MapMarkerOutlineIcon, MenuVariantIcon, UpdateIcon} from '@mattermost/compass-icons/components';
 import type IconProps from '@mattermost/compass-icons/components/props';
@@ -18,6 +17,8 @@ import type {SessionAttributeDisplayType, SessionAttributeField} from './utils';
 import {formatDuration, getDisplayType, getSessionAttrs, getSessionDisplayName, isServerSourced} from './utils';
 
 import {AdminConsoleListTable} from '../list_table';
+
+import './session_attributes.scss';
 
 const columnHelper = createColumnHelper<SessionAttributeField>();
 
@@ -46,17 +47,20 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
                 id: 'display_name',
                 size: 200,
                 header: () => (
-                    <ColHeaderLeft>
+                    <div className='SessionAttributes__col-header'>
                         <FormattedMessage
                             id='admin.session_attributes.table.display_name'
                             defaultMessage='Display Name'
                         />
-                    </ColHeaderLeft>
+                    </div>
                 ),
                 cell: ({getValue}) => (
-                    <DisplayName data-testid='session-attribute-display-name'>
+                    <span
+                        className='SessionAttributes__display-name'
+                        data-testid='session-attribute-display-name'
+                    >
                         {getValue()}
-                    </DisplayName>
+                    </span>
                 ),
                 enableHiding: false,
                 enableSorting: false,
@@ -64,25 +68,28 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
             columnHelper.accessor('name', {
                 size: 180,
                 header: () => (
-                    <ColHeaderLeft>
+                    <div className='SessionAttributes__col-header'>
                         <FormattedMessage
                             id='admin.session_attributes.table.name'
                             defaultMessage='Name'
                         />
-                    </ColHeaderLeft>
+                    </div>
                 ),
                 cell: ({getValue, row}) => (
-                    <NameCell>
-                        <NameText>{getValue()}</NameText>
+                    <span className='SessionAttributes__name-cell'>
+                        <span className='SessionAttributes__name-text'>{getValue()}</span>
                         {isServerSourced(row.original.name) && (
-                            <ServerBadge data-testid='session-attribute-server-label'>
+                            <span
+                                className='SessionAttributes__server-badge'
+                                data-testid='session-attribute-server-label'
+                            >
                                 <FormattedMessage
                                     id='admin.session_attributes.table.server_label'
                                     defaultMessage='Server'
                                 />
-                            </ServerBadge>
+                            </span>
                         )}
-                    </NameCell>
+                    </span>
                 ),
                 enableHiding: false,
                 enableSorting: false,
@@ -91,22 +98,25 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
                 id: 'type',
                 size: 120,
                 header: () => (
-                    <ColHeaderLeft>
+                    <div className='SessionAttributes__col-header'>
                         <FormattedMessage
                             id='admin.session_attributes.table.type'
                             defaultMessage='Type'
                         />
-                    </ColHeaderLeft>
+                    </div>
                 ),
                 cell: ({getValue}) => {
                     const displayType = getValue<SessionAttributeDisplayType>();
                     const Icon = TYPE_ICONS[displayType];
 
                     return (
-                        <TypeCell data-testid='session-attribute-type'>
+                        <span
+                            className='SessionAttributes__type-cell'
+                            data-testid='session-attribute-type'
+                        >
                             <Icon size={16}/>
                             <FormattedMessage {...typeLabels[displayType]}/>
-                        </TypeCell>
+                        </span>
                     );
                 },
                 enableHiding: false,
@@ -116,12 +126,12 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
                 id: 'platform',
                 size: 120,
                 header: () => (
-                    <ColHeaderLeft>
+                    <div className='SessionAttributes__col-header'>
                         <FormattedMessage
                             id='admin.session_attributes.table.platform'
                             defaultMessage='Platform'
                         />
-                    </ColHeaderLeft>
+                    </div>
                 ),
                 cell: ({row}) => (
                     <PlatformIcons platforms={getSessionAttrs(row.original).platforms}/>
@@ -133,17 +143,20 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
                 id: 'ttl',
                 size: 80,
                 header: () => (
-                    <ColHeaderLeft>
+                    <div className='SessionAttributes__col-header'>
                         <FormattedMessage
                             id='admin.session_attributes.table.ttl'
                             defaultMessage='TTL'
                         />
-                    </ColHeaderLeft>
+                    </div>
                 ),
                 cell: ({row}) => (
-                    <DurationText data-testid='session-attribute-ttl'>
+                    <span
+                        className='SessionAttributes__duration'
+                        data-testid='session-attribute-ttl'
+                    >
                         {formatDuration(getSessionAttrs(row.original).ttl_seconds)}
-                    </DurationText>
+                    </span>
                 ),
                 enableHiding: false,
                 enableSorting: false,
@@ -152,17 +165,20 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
                 id: 'grace',
                 size: 80,
                 header: () => (
-                    <ColHeaderLeft>
+                    <div className='SessionAttributes__col-header'>
                         <FormattedMessage
                             id='admin.session_attributes.table.grace'
                             defaultMessage='Grace'
                         />
-                    </ColHeaderLeft>
+                    </div>
                 ),
                 cell: ({row}) => (
-                    <DurationText data-testid='session-attribute-grace'>
+                    <span
+                        className='SessionAttributes__duration'
+                        data-testid='session-attribute-grace'
+                    >
                         {formatDuration(getSessionAttrs(row.original).grace_period_seconds)}
-                    </DurationText>
+                    </span>
                 ),
                 enableHiding: false,
                 enableSorting: false,
@@ -175,12 +191,12 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
                 id: 'sessionStatus',
                 size: 104,
                 header: () => (
-                    <ColHeaderLeft>
+                    <div className='SessionAttributes__col-header'>
                         <FormattedMessage
                             id='admin.session_attributes.table.status'
                             defaultMessage='Status'
                         />
-                    </ColHeaderLeft>
+                    </div>
                 ),
                 cell: ({row}) => (
                     <StatusChip enabled={getSessionAttrs(row.original).enabled}/>
@@ -192,20 +208,20 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
                 id: 'actions',
                 size: 56,
                 header: () => (
-                    <ColHeaderRight>
+                    <div className='SessionAttributes__col-header SessionAttributes__col-header--right'>
                         <FormattedMessage
                             id='admin.session_attributes.table.actions'
                             defaultMessage='Actions'
                         />
-                    </ColHeaderRight>
+                    </div>
                 ),
                 cell: ({row}) => (
-                    <ActionsRoot>
+                    <div className='SessionAttributes__actions'>
                         <SessionAttributesDotMenu
                             field={row.original}
                             onStageChange={onStageChange}
                         />
-                    </ActionsRoot>
+                    </div>
                 ),
                 enableHiding: false,
                 enableSorting: false,
@@ -227,9 +243,12 @@ export default function SessionAttributesTable({data, onStageChange}: Props) {
     });
 
     return (
-        <TableWrapper $minWidth={table.getTotalSize()}>
+        <div
+            className='SessionAttributes__table-wrapper'
+            style={{'--session-attributes-table-min-width': `${table.getTotalSize()}px`} as CSSProperties}
+        >
             <AdminConsoleListTable<SessionAttributeField> table={table}/>
-        </TableWrapper>
+        </div>
     );
 }
 
@@ -240,111 +259,3 @@ const typeLabels = defineMessages({
     Version: {id: 'admin.session_attributes.type.version', defaultMessage: 'Version'},
     Enum: {id: 'admin.session_attributes.type.enum', defaultMessage: 'Enum'},
 });
-
-const TableWrapper = styled.div<{$minWidth: number}>`
-    .adminConsoleListTableContainer {
-        overflow-x: auto;
-        padding: 2px 0;
-    }
-
-    table.adminConsoleListTable {
-        width: max-content;
-        max-width: 100%;
-        min-width: ${({$minWidth}) => $minWidth}px;
-
-        td, th {
-            &:after, &:before {
-                display: none !important;
-            }
-        }
-
-        thead {
-            border-top: none;
-            border-bottom: 1px solid rgba(var(--center-channel-color-rgb), 0.08);
-            tr {
-                th {
-                    background: rgba(var(--center-channel-color-rgb), 0.04);
-                    padding-block-end: 8px;
-                    padding-block-start: 8px;
-                }
-            }
-        }
-
-        tbody {
-            tr {
-                border-top: none;
-                border-bottom: 1px solid rgba(var(--center-channel-color-rgb), 0.08);
-                border-bottom-color: rgba(var(--center-channel-color-rgb), 0.08) !important;
-                td {
-                    &:last-child {
-                        padding-inline-end: 12px;
-                    }
-                }
-            }
-        }
-
-        tfoot {
-            border-top: none;
-        }
-    }
-`;
-
-const ColHeaderLeft = styled.div`
-    display: inline-block;
-`;
-
-const ColHeaderRight = styled.div`
-    display: inline-block;
-    width: 100%;
-    text-align: right;
-`;
-
-const DisplayName = styled.span`
-    font-size: 14px;
-    font-weight: 600;
-`;
-
-const NameCell = styled.span`
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-`;
-
-const NameText = styled.span`
-    color: rgba(var(--center-channel-color-rgb), 0.75);
-    font-family: 'Menlo', 'Monaco', monospace;
-    font-size: 12px;
-`;
-
-const ServerBadge = styled.span`
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: rgba(var(--center-channel-color-rgb), 0.08);
-    color: rgba(var(--center-channel-color-rgb), 0.75);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-`;
-
-const TypeCell = styled.span`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: rgba(var(--center-channel-color-rgb), 0.75);
-
-    svg {
-        color: rgba(var(--center-channel-color-rgb), 0.56);
-    }
-`;
-
-const DurationText = styled.span`
-    color: rgba(var(--center-channel-color-rgb), 0.75);
-`;
-
-const ActionsRoot = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    color: rgba(var(--center-channel-color-rgb), 0.56);
-`;

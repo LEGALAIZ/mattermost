@@ -4,7 +4,6 @@
 import React, {useEffect, useState} from 'react';
 import {FormattedMessage, defineMessages, useIntl} from 'react-intl';
 import {useDispatch, useSelector} from 'react-redux';
-import styled from 'styled-components';
 
 import {SESSION_ATTRIBUTES_GROUP_ID, SESSION_ATTRIBUTES_OBJECT_TYPE} from '@mattermost/types/properties_user';
 import type {GlobalState} from '@mattermost/types/store';
@@ -26,6 +25,8 @@ import type {SessionAttributeField} from './utils';
 import SaveChangesPanel from '../save_changes_panel';
 import {AdminSection, DangerText, SectionContent, SectionHeader, SectionHeading} from '../system_properties/controls';
 import type {SearchableStrings} from '../types';
+
+import './session_attributes.scss';
 
 type Props = {
     disabled: boolean;
@@ -73,7 +74,7 @@ export default function SessionAttributesPage(props: Props) {
                 <FormattedMessage {...msg.pageTitle}/>
             </AdminHeader>
             <div className='admin-console__wrapper'>
-                <SessionAttributesAdminContent>
+                <div className='admin-console__content SessionAttributes__content'>
                     <AdminSection data-testid='session_attributes'>
                         <SectionHeader>
                             <hgroup>
@@ -89,12 +90,15 @@ export default function SessionAttributesPage(props: Props) {
                             </hgroup>
                         </SectionHeader>
                         <SectionContent $compact={true}>
-                            <TableRegion aria-disabled={props.disabled}>
+                            <div
+                                className='SessionAttributes__table-region'
+                                aria-disabled={props.disabled}
+                            >
                                 {renderRegion(loaded, edits)}
-                            </TableRegion>
+                            </div>
                         </SectionContent>
                     </AdminSection>
-                </SessionAttributesAdminContent>
+                </div>
             </div>
             <SaveChangesPanel
                 saving={edits.saving}
@@ -122,12 +126,12 @@ function renderRegion(loaded: boolean, edits: SessionAttributeEdits) {
 
     if (edits.merged.length === 0) {
         return (
-            <EmptyState>
+            <div className='SessionAttributes__empty'>
                 <FormattedMessage
                     id='admin.session_attributes.empty'
                     defaultMessage='No session attributes found.'
                 />
-            </EmptyState>
+            </div>
         );
     }
 
@@ -144,20 +148,3 @@ const msg = defineMessages({
 });
 
 export const searchableStrings: SearchableStrings = Object.values(msg);
-
-const SessionAttributesAdminContent = styled.div.attrs({className: 'admin-console__content'})`
-    &&& {
-        max-width: none;
-    }
-`;
-
-const TableRegion = styled.div`
-    width: 100%;
-    min-width: 0;
-`;
-
-const EmptyState = styled.div`
-    padding: 24px;
-    color: rgba(var(--center-channel-color-rgb), 0.64);
-    text-align: center;
-`;
