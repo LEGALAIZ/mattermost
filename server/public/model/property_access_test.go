@@ -23,6 +23,29 @@ func TestIsValidPropertyOwnerType(t *testing.T) {
 	assert.False(t, IsValidPropertyOwnerType("bogus"))
 }
 
+func TestIsValidPropertyOwnerScope(t *testing.T) {
+	for _, scope := range []string{
+		"entra",
+		"Okta",
+		"entra:tenant-1",
+		"a.b_c-d",
+		"ldap",
+	} {
+		assert.True(t, IsValidPropertyOwnerScope(scope), scope)
+	}
+
+	for _, scope := range []string{
+		"",
+		" spaces",
+		"a b",
+		"a\nb",
+		"🔥",
+		"<script>",
+	} {
+		assert.False(t, IsValidPropertyOwnerScope(scope), scope)
+	}
+}
+
 func TestGetPropertyFieldOwners(t *testing.T) {
 	t.Run("returns nil when no attrs or no owners", func(t *testing.T) {
 		assert.Nil(t, GetPropertyFieldOwners(nil))

@@ -13,75 +13,6 @@ import (
 	"github.com/mattermost/mattermost/server/v8/channels/store"
 )
 
-// valueDiffSearchPerPage bounds the per-target lookup used to load prior values
-// for post-upsert no-op detection. Property field counts per target are well
-// below this, so a single page covers a target's values; any truncation only
-// causes a hook to over-observe (fail toward observing), never the reverse.
-const valueDiffSearchPerPage = 1000
-
-// valueIdentityKey identifies a property value by its (target, field) tuple,
-// independent of its row ID. \x00 is a NUL separator that cannot appear in the
-// component IDs, so distinct tuples never collide.
-func valueIdentityKey(targetType, targetID, fieldID string) string {
-	return targetType + "\x00" + targetID + "\x00" + fieldID
-}
-
-// priorValuesByKey loads the currently stored values for the given values'
-// targets so a post-upsert hook can diff against them for no-op detection.
-// Keyed by valueIdentityKey. Best-effort: on error the entry is omitted, which
-// makes the corresponding write look like a change.
-func (ps *PropertyService) priorValuesByKey(values []*model.PropertyValue) map[string]*model.PropertyValue {
-	byKey := make(map[string]*model.PropertyValue, len(values))
-	if len(values) == 0 {
-		return byKey
-	}
-	groupID := values[0].GroupID
-
-	targetIDsByType := make(map[string]map[string]struct{})
-	for _, v := range values {
-		if v == nil {
-			continue
-		}
-		if targetIDsByType[v.TargetType] == nil {
-			targetIDsByType[v.TargetType] = make(map[string]struct{})
-		}
-		targetIDsByType[v.TargetType][v.TargetID] = struct{}{}
-	}
-
-	for targetType, idSet := range targetIDsByType {
-		targetIDs := make([]string, 0, len(idSet))
-		for id := range idSet {
-			targetIDs = append(targetIDs, id)
-		}
-		existing, err := ps.searchPropertyValues(groupID, model.PropertyValueSearchOpts{
-			GroupID:    groupID,
-			TargetType: targetType,
-			TargetIDs:  targetIDs,
-			PerPage:    valueDiffSearchPerPage,
-		})
-		if err != nil {
-			continue
-		}
-		for _, ev := range existing {
-			byKey[valueIdentityKey(ev.TargetType, ev.TargetID, ev.FieldID)] = ev
-		}
-	}
-	return byKey
-}
-
-// alignPriorValues returns a slice parallel to values where each entry is the
-// prior stored value for that (target, field), or nil if none existed.
-func alignPriorValues(prevByKey map[string]*model.PropertyValue, values []*model.PropertyValue) []*model.PropertyValue {
-	prev := make([]*model.PropertyValue, len(values))
-	for i, v := range values {
-		if v == nil {
-			continue
-		}
-		prev[i] = prevByKey[valueIdentityKey(v.TargetType, v.TargetID, v.FieldID)]
-	}
-	return prev
-}
-
 // rejectTemplateValues checks that none of the given values target a template
 // field. Template fields are definition-only and must never hold values.
 // This is enforced at the service layer to cover all entry points (API,
@@ -285,11 +216,8 @@ func (ps *PropertyService) SearchPropertyValues(rctx request.CTX, groupID string
 }
 
 func (ps *PropertyService) UpdatePropertyValue(rctx request.CTX, groupID string, value *model.PropertyValue) (_ *model.PropertyValue, err error) {
-	prevByKey := ps.priorValuesByKey([]*model.PropertyValue{value})
-	prev := prevByKey[valueIdentityKey(value.TargetType, value.TargetID, value.FieldID)]
-
 	attempted := value
-	defer func() { ps.runPostUpdatePropertyValue(rctx, prev, attempted, err) }()
+	defer func() { ps.runPostUpdatePropertyValue(rctx, attempted, err) }()
 
 	processed, err := ps.runPreUpdatePropertyValue(rctx, groupID, value)
 	if err != nil {
@@ -323,10 +251,9 @@ func (ps *PropertyService) UpdatePropertyValues(rctx request.CTX, groupID string
 		}
 	}
 
-	prevByKey := ps.priorValuesByKey(values)
 	attempted := values
 	defer func() {
-		ps.runPostUpdatePropertyValues(rctx, alignPriorValues(prevByKey, attempted), attempted, err)
+		ps.runPostUpdatePropertyValues(rctx, attempted, err)
 	}()
 
 	processed, err := ps.runPreUpdatePropertyValues(rctx, groupID, values)
@@ -348,13 +275,8 @@ func (ps *PropertyService) UpsertPropertyValue(rctx request.CTX, value *model.Pr
 		return nil, fmt.Errorf("UpsertPropertyValue: value cannot be nil")
 	}
 
-	// Capture prior state before the gates so the post-hook can detect no-ops
-	// and so a denied write (rejected by a pre-hook) is still observable.
-	prevByKey := ps.priorValuesByKey([]*model.PropertyValue{value})
-	prev := prevByKey[valueIdentityKey(value.TargetType, value.TargetID, value.FieldID)]
-
 	attempted := value
-	defer func() { ps.runPostUpsertPropertyValue(rctx, prev, attempted, err) }()
+	defer func() { ps.runPostUpsertPropertyValue(rctx, attempted, err) }()
 
 	processed, err := ps.runPreUpsertPropertyValue(rctx, value)
 	if err != nil {
@@ -384,10 +306,9 @@ func (ps *PropertyService) UpsertPropertyValues(rctx request.CTX, values []*mode
 		}
 	}
 
-	prevByKey := ps.priorValuesByKey(values)
 	attempted := values
 	defer func() {
-		ps.runPostUpsertPropertyValues(rctx, alignPriorValues(prevByKey, attempted), attempted, err)
+		ps.runPostUpsertPropertyValues(rctx, attempted, err)
 	}()
 
 	processed, err := ps.runPreUpsertPropertyValues(rctx, values)

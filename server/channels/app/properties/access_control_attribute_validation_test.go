@@ -1684,6 +1684,60 @@ func TestAccessControlAttributeValidationHook_Owners(t *testing.T) {
 		assert.ElementsMatch(t, []string{"entra", "okta"}, owners[0].Scopes)
 	})
 
+	t.Run("normalizes scope labels to lowercase", func(t *testing.T) {
+		field := &model.PropertyField{
+			GroupID:    group.ID,
+			Name:       "field_" + model.NewId(),
+			Type:       model.PropertyFieldTypeText,
+			TargetType: "system",
+			ObjectType: "user",
+			Attrs: newOwnerFieldAttrs([]model.PropertyOwner{
+				{ID: "com.mattermost.scim", Type: model.PropertyOwnerTypePlugin, Scopes: []string{"Entra"}},
+			}),
+		}
+		created, createErr := th.service.CreatePropertyField(th.Context, field)
+		require.NoError(t, createErr)
+
+		owners := model.GetPropertyFieldOwners(created)
+		require.Len(t, owners, 1)
+		assert.Equal(t, []string{"entra"}, owners[0].Scopes)
+	})
+
+	t.Run("dedupes case-variant scope labels", func(t *testing.T) {
+		field := &model.PropertyField{
+			GroupID:    group.ID,
+			Name:       "field_" + model.NewId(),
+			Type:       model.PropertyFieldTypeText,
+			TargetType: "system",
+			ObjectType: "user",
+			Attrs: newOwnerFieldAttrs([]model.PropertyOwner{
+				{ID: "com.mattermost.scim", Type: model.PropertyOwnerTypePlugin, Scopes: []string{"Entra", "entra"}},
+			}),
+		}
+		created, createErr := th.service.CreatePropertyField(th.Context, field)
+		require.NoError(t, createErr)
+
+		owners := model.GetPropertyFieldOwners(created)
+		require.Len(t, owners, 1)
+		assert.Equal(t, []string{"entra"}, owners[0].Scopes)
+	})
+
+	t.Run("rejects a scope with invalid characters", func(t *testing.T) {
+		field := &model.PropertyField{
+			GroupID:    group.ID,
+			Name:       "field_" + model.NewId(),
+			Type:       model.PropertyFieldTypeText,
+			TargetType: "system",
+			ObjectType: "user",
+			Attrs: newOwnerFieldAttrs([]model.PropertyOwner{
+				{ID: "com.mattermost.scim", Type: model.PropertyOwnerTypePlugin, Scopes: []string{"a b"}},
+			}),
+		}
+		_, createErr := th.service.CreatePropertyField(th.Context, field)
+		require.Error(t, createErr)
+		assert.Contains(t, createErr.Error(), "invalid characters")
+	})
+
 	t.Run("rejects an owner with an unknown type", func(t *testing.T) {
 		field := &model.PropertyField{
 			GroupID:    group.ID,

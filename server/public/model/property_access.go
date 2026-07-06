@@ -6,6 +6,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 )
 
 const (
@@ -33,7 +34,8 @@ const (
 // Defensive bounds on the owners list. These are not semantic limits — the
 // server never interprets owner IDs or scopes — they only keep a buggy or
 // hostile owner from bloating the field's Attrs blob. Real usage is far below
-// them (a field has one or two owners, each with a handful of scopes).
+// them (a field has one or two owners, each with a handful of scopes). Scope
+// labels must match the identifier charset enforced by IsValidPropertyOwnerScope.
 const (
 	PropertyOwnersMaxPerField  = 20  // owners per field
 	PropertyOwnerScopesMax     = 32  // scopes per owner
@@ -74,6 +76,15 @@ func IsValidPropertyOwnerType(ownerType string) bool {
 		return true
 	}
 	return false
+}
+
+var validPropertyOwnerScopeChars = regexp.MustCompile(`^[a-zA-Z0-9._:-]+$`)
+
+// IsValidPropertyOwnerScope reports whether a scope label is identifier-shaped.
+// This is a structural bound (like the length/count caps), not a semantic
+// registry: the server still does not interpret what a scope means.
+func IsValidPropertyOwnerScope(scope string) bool {
+	return validPropertyOwnerScopeChars.MatchString(scope)
 }
 
 // GetPropertyFieldOwners returns the owners declared on a field's Attrs blob.

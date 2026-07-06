@@ -282,12 +282,15 @@ func (h *AccessControlAttributeValidationHook) sanitizeAndValidateOwners(field *
 
 		scopes := make([]string, 0, len(owner.Scopes))
 		for _, scope := range owner.Scopes {
-			scope = strings.TrimSpace(scope)
+			scope = strings.ToLower(strings.TrimSpace(scope))
 			if scope == "" || slices.Contains(scopes, scope) {
 				continue
 			}
 			if utf8.RuneCountInString(scope) > model.PropertyOwnerScopeMaxRunes {
 				return fmt.Errorf("invalid owners: scope exceeds max length of %d runes: %w", model.PropertyOwnerScopeMaxRunes, ErrInvalidFieldAttrs)
+			}
+			if !model.IsValidPropertyOwnerScope(scope) {
+				return fmt.Errorf("invalid owners: scope %q contains invalid characters: %w", scope, ErrInvalidFieldAttrs)
 			}
 			scopes = append(scopes, scope)
 		}

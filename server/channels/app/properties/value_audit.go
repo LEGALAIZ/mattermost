@@ -4,8 +4,6 @@
 package properties
 
 import (
-	"bytes"
-
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/shared/request"
 )
@@ -49,9 +47,7 @@ type ValueAuditSink func(rctx request.CTX, e ValueAuditEvent)
 // PropertyValueAuditHook audits value writes for registered property groups.
 // Every write path funnels through the generic value write path, so auditing
 // lives here rather than in each API handler. Post-hooks run after the store
-// write; upserts are diffed against their pre-write state so high-frequency
-// sync no-ops do not flood the audit log. Groups without a registered sink are
-// not audited.
+// write. Groups without a registered sink are not audited.
 type PropertyValueAuditHook struct {
 	BasePropertyHook
 	sinks map[string]ValueAuditSink
@@ -85,16 +81,9 @@ func (h *PropertyValueAuditHook) emit(rctx request.CTX, groupID string, e ValueA
 }
 
 // auditWrite emits an audit record for an attempted write under the given
-// action, recording success/failure from opErr. It suppresses no-ops — an
-// attempted value equal to the already-stored, non-deleted value — on both the
-// success and failure paths, so re-writing an unchanged value never audits even
-// if it is rejected. Values are sanitized on write, so a byte comparison is a
-// sound no-op test.
-func (h *PropertyValueAuditHook) auditWrite(rctx request.CTX, action string, prev, value *model.PropertyValue, opErr error) {
+// action, recording success/failure from opErr.
+func (h *PropertyValueAuditHook) auditWrite(rctx request.CTX, action string, value *model.PropertyValue, opErr error) {
 	if value == nil {
-		return
-	}
-	if prev != nil && prev.DeleteAt == 0 && bytes.Equal(prev.Value, value.Value) {
 		return
 	}
 	h.emit(rctx, value.GroupID, ValueAuditEvent{
@@ -102,7 +91,6 @@ func (h *PropertyValueAuditHook) auditWrite(rctx request.CTX, action string, pre
 		TargetType: value.TargetType,
 		TargetID:   value.TargetID,
 		FieldID:    value.FieldID,
-		Prev:       prev,
 		Current:    value,
 		Err:        opErr,
 	})
@@ -136,34 +124,26 @@ func (h *PropertyValueAuditHook) PostCreatePropertyValues(rctx request.CTX, valu
 	return nil
 }
 
-func (h *PropertyValueAuditHook) PostUpdatePropertyValue(rctx request.CTX, prev, value *model.PropertyValue, opErr error) error {
-	h.auditWrite(rctx, ValueAuditActionUpdate, prev, value, opErr)
+func (h *PropertyValueAuditHook) PostUpdatePropertyValue(rctx request.CTX, value *model.PropertyValue, opErr error) error {
+	h.auditWrite(rctx, ValueAuditActionUpdate, value, opErr)
 	return nil
 }
 
-func (h *PropertyValueAuditHook) PostUpdatePropertyValues(rctx request.CTX, prev, values []*model.PropertyValue, opErr error) error {
-	for i, v := range values {
-		var p *model.PropertyValue
-		if i < len(prev) {
-			p = prev[i]
-		}
-		h.auditWrite(rctx, ValueAuditActionUpdate, p, v, opErr)
+func (h *PropertyValueAuditHook) PostUpdatePropertyValues(rctx request.CTX, values []*model.PropertyValue, opErr error) error {
+	for _, v := range values {
+		h.auditWrite(rctx, ValueAuditActionUpdate, v, opErr)
 	}
 	return nil
 }
 
-func (h *PropertyValueAuditHook) PostUpsertPropertyValue(rctx request.CTX, prev, value *model.PropertyValue, opErr error) error {
-	h.auditWrite(rctx, ValueAuditActionUpsert, prev, value, opErr)
+func (h *PropertyValueAuditHook) PostUpsertPropertyValue(rctx request.CTX, value *model.PropertyValue, opErr error) error {
+	h.auditWrite(rctx, ValueAuditActionUpsert, value, opErr)
 	return nil
 }
 
-func (h *PropertyValueAuditHook) PostUpsertPropertyValues(rctx request.CTX, prev, values []*model.PropertyValue, opErr error) error {
-	for i, v := range values {
-		var p *model.PropertyValue
-		if i < len(prev) {
-			p = prev[i]
-		}
-		h.auditWrite(rctx, ValueAuditActionUpsert, p, v, opErr)
+func (h *PropertyValueAuditHook) PostUpsertPropertyValues(rctx request.CTX, values []*model.PropertyValue, opErr error) error {
+	for _, v := range values {
+		h.auditWrite(rctx, ValueAuditActionUpsert, v, opErr)
 	}
 	return nil
 }

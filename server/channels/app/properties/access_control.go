@@ -26,6 +26,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/shared/request"
@@ -621,31 +622,19 @@ func (h *AccessControlHook) extractActingAsScope(rctx request.CTX) string {
 	return h.propertyService.extractActingAsScope(rctx)
 }
 
-// callerIsPlugin checks whether the callerID corresponds to an installed plugin.
-func callerIsPlugin(pluginChecker PluginChecker, callerID string) bool {
-	return callerID != "" && pluginChecker != nil && pluginChecker(callerID)
-}
-
-// callerIsMachine reports whether the caller is a machine actor (an installed
-// plugin or a built-in sync service) rather than a human. Owner-list
-// enforcement applies only to machine callers; human callers (session users
-// and local admins) are governed by the API-layer permission levels.
-func callerIsMachine(pluginChecker PluginChecker, callerID string) bool {
-	if callerIsPlugin(pluginChecker, callerID) {
-		return true
-	}
-	return callerID == model.CallerIDLDAPSync || callerID == model.CallerIDSAMLSync
-}
-
 // isCallerPlugin checks whether the callerID corresponds to an installed plugin.
 func (h *AccessControlHook) isCallerPlugin(callerID string) bool {
-	return callerIsPlugin(h.pluginChecker, callerID)
+	return callerID != "" && h.pluginChecker != nil && h.pluginChecker(callerID)
 }
 
 // isMachineCaller reports whether the caller is a machine actor (an installed
-// plugin or a built-in sync service) rather than a human.
+// plugin or a built-in sync service) rather than a human. Owner-list
+// enforcement applies only to machine callers; human callers (session users
+// and local admins) are governed by the API-layer permission levels.
 func (h *AccessControlHook) isMachineCaller(callerID string) bool {
-	return callerIsMachine(h.pluginChecker, callerID)
+	return h.isCallerPlugin(callerID) ||
+		callerID == model.CallerIDLDAPSync ||
+		callerID == model.CallerIDSAMLSync
 }
 
 // callerOwnerIdentity maps a machine caller (and its acting-as scope) to the
@@ -656,11 +645,11 @@ func (h *AccessControlHook) isMachineCaller(callerID string) bool {
 func (h *AccessControlHook) callerOwnerIdentity(callerID, scope string) (ownerID, ownerType, effectiveScope string) {
 	switch callerID {
 	case model.CallerIDLDAPSync:
-		return "ldap", model.PropertyOwnerTypeService, "ldap"
+		return model.PropertyFieldAttrLDAP, model.PropertyOwnerTypeService, model.PropertyFieldAttrLDAP
 	case model.CallerIDSAMLSync:
-		return "saml", model.PropertyOwnerTypeService, "saml"
+		return model.PropertyFieldAttrSAML, model.PropertyOwnerTypeService, model.PropertyFieldAttrSAML
 	default:
-		return callerID, model.PropertyOwnerTypePlugin, scope
+		return callerID, model.PropertyOwnerTypePlugin, strings.ToLower(scope)
 	}
 }
 
@@ -678,16 +667,16 @@ func (h *AccessControlHook) effectiveOwners(field *model.PropertyField) []model.
 
 	if ldap, _ := field.Attrs[model.PropertyFieldAttrLDAP].(string); ldap != "" {
 		owners = append(owners, model.PropertyOwner{
-			ID:     "ldap",
+			ID:     model.PropertyFieldAttrLDAP,
 			Type:   model.PropertyOwnerTypeService,
-			Scopes: []string{"ldap"},
+			Scopes: []string{model.PropertyFieldAttrLDAP},
 		})
 	}
 	if saml, _ := field.Attrs[model.PropertyFieldAttrSAML].(string); saml != "" {
 		owners = append(owners, model.PropertyOwner{
-			ID:     "saml",
+			ID:     model.PropertyFieldAttrSAML,
 			Type:   model.PropertyOwnerTypeService,
-			Scopes: []string{"saml"},
+			Scopes: []string{model.PropertyFieldAttrSAML},
 		})
 	}
 	return owners
