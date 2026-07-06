@@ -3778,7 +3778,39 @@ func TestPluginAPICreateChannelManagedCategory(t *testing.T) {
 	assert.Equal(t, categoryName, mappings[createdChannel.Id])
 }
 
-func TestPluginAPIDeleteAndRestoreChannelRejectSpace(t *testing.T) {
+func TestPluginAPICreateSpaceAndAddMember(t *testing.T) {
+	mainHelper.Parallel(t)
+
+	th := Setup(t).InitBasic(t)
+	th.ConfigStore.SetReadOnlyFF(false)
+	t.Cleanup(func() {
+		th.ConfigStore.SetReadOnlyFF(true)
+	})
+	th.App.UpdateConfig(func(cfg *model.Config) { cfg.FeatureFlags.EnableDocs = true })
+	defer th.App.UpdateConfig(func(cfg *model.Config) { cfg.FeatureFlags.EnableDocs = false })
+
+	api := th.SetupPluginAPI()
+
+	// Reproduces the docs plugin's CreateSpace flow: create the space backing channel,
+	// then add the creator as a member. Both must succeed through the plugin API.
+	space := &model.Channel{
+		TeamId:      th.BasicTeam.Id,
+		DisplayName: "Space",
+		Name:        "space-" + model.NewId(),
+		Type:        model.ChannelTypeSpace,
+		CreatorId:   th.BasicUser.Id,
+	}
+	created, appErr := api.CreateChannel(space)
+	require.Nil(t, appErr)
+	require.Equal(t, model.ChannelTypeSpace, created.Type)
+
+	member, appErr := api.AddChannelMember(created.Id, th.BasicUser.Id)
+	require.Nil(t, appErr)
+	require.Equal(t, created.Id, member.ChannelId)
+	require.Equal(t, th.BasicUser.Id, member.UserId)
+}
+
+func TestPluginAPIDeleteAndRestoreChannelAllowSpace(t *testing.T) {
 	mainHelper.Parallel(t)
 
 	th := Setup(t).InitBasic(t)
@@ -3793,13 +3825,13 @@ func TestPluginAPIDeleteAndRestoreChannelRejectSpace(t *testing.T) {
 	space, nErr := th.App.Srv().Store().Channel().Save(th.Context, space, -1)
 	require.NoError(t, nErr)
 
+	// The docs plugin manages the space backing channel lifecycle through these plugin APIs,
+	// so archive and restore must succeed on a space channel.
 	appErr := api.DeleteChannel(space.Id)
-	require.NotNil(t, appErr)
-	assert.Equal(t, "app.channel.delete_channel.space.app_error", appErr.Id)
+	require.Nil(t, appErr)
 
 	appErr = api.RestoreChannel(space.Id)
-	require.NotNil(t, appErr)
-	assert.Equal(t, "app.channel.restore_channel.space.app_error", appErr.Id)
+	require.Nil(t, appErr)
 }
 
 func TestPluginAPICreateChannelAnonymousURLs(t *testing.T) {

@@ -5523,10 +5523,6 @@
     "translation": "Unable to add the user as a member of the channel."
   },
   {
-    "id": "app.channel.add_member.space.app_error",
-    "translation": "Spaces cannot have members added through this endpoint."
-  },
-  {
     "id": "app.channel.add_user.to.channel.rejected_by_plugin",
     "translation": "Adding channel member rejected by plugin: {{.Reason}}"
   },
@@ -5613,6 +5609,10 @@
   {
     "id": "app.channel.create_channel.no_team_id.app_error",
     "translation": "Must specify the team ID to create a channel."
+  },
+  {
+    "id": "app.channel.create_channel.space_type.app_error",
+    "translation": "Space channels cannot be created via this endpoint."
   },
   {
     "id": "app.channel.create_direct_channel.internal_error",
@@ -5889,10 +5889,6 @@
   {
     "id": "app.channel.restore_channel.rejected_by_plugin",
     "translation": "Channel restore rejected by plugin: {{.Reason}}"
-  },
-  {
-    "id": "app.channel.restore_channel.space.app_error",
-    "translation": "Spaces cannot be restored through this endpoint."
   },
   {
     "id": "app.channel.save_member.app_error",

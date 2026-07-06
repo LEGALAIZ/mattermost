@@ -165,8 +165,8 @@ func (a *App) CreateChannelWithUser(rctx request.CTX, channel *model.Channel, us
 		return nil, model.NewAppError("CreateChannelWithUser", "app.channel.create_channel.board_type.app_error", nil, "use CreateBoardChannel instead", http.StatusBadRequest)
 	}
 
-	if channel.IsSpace() && !a.Config().FeatureFlags.EnableDocs {
-		return nil, model.NewAppError("CreateChannelWithUser", "app.channel.create_channel.docs_not_enabled.app_error", nil, "", http.StatusForbidden)
+	if channel.IsSpace() {
+		return nil, model.NewAppError("CreateChannelWithUser", "app.channel.create_channel.space_type.app_error", nil, "use CreateChannel instead", http.StatusBadRequest)
 	}
 
 	if channel.TeamId == "" {
@@ -179,7 +179,7 @@ func (a *App) CreateChannelWithUser(rctx request.CTX, channel *model.Channel, us
 		return nil, err
 	}
 
-	if !channel.IsSpace() && int64(count+1) > *a.Config().TeamSettings.MaxChannelsPerTeam {
+	if int64(count+1) > *a.Config().TeamSettings.MaxChannelsPerTeam {
 		return nil, model.NewAppError("CreateChannelWithUser", "api.channel.create_channel.max_channel_limit.app_error", map[string]any{"MaxChannelsPerTeam": *a.Config().TeamSettings.MaxChannelsPerTeam}, "", http.StatusBadRequest)
 	}
 
@@ -954,10 +954,6 @@ func (a *App) postChannelPrivacyMessage(rctx request.CTX, user *model.User, chan
 }
 
 func (a *App) RestoreChannel(rctx request.CTX, channel *model.Channel, userID string) (*model.Channel, *model.AppError) {
-	if channel.IsSpace() {
-		return nil, model.NewAppError("RestoreChannel", "app.channel.restore_channel.space.app_error", nil, "", http.StatusBadRequest)
-	}
-
 	if channel.DeleteAt == 0 {
 		return nil, model.NewAppError("restoreChannel", "api.channel.restore_channel.restored.app_error", nil, "", http.StatusBadRequest)
 	}
@@ -1659,10 +1655,6 @@ func (a *App) updateChannelMember(rctx request.CTX, member *model.ChannelMember)
 }
 
 func (a *App) DeleteChannel(rctx request.CTX, channel *model.Channel, userID string) *model.AppError {
-	if channel.IsSpace() {
-		return model.NewAppError("DeleteChannel", "app.channel.delete_channel.space.app_error", nil, "", http.StatusBadRequest)
-	}
-
 	ihc := make(chan store.StoreResult[[]*model.IncomingWebhook], 1)
 	ohc := make(chan store.StoreResult[[]*model.OutgoingWebhook], 1)
 
@@ -1808,7 +1800,9 @@ func (a *App) DeleteChannel(rctx request.CTX, channel *model.Channel, userID str
 }
 
 func (a *App) addUserToChannel(rctx request.CTX, user *model.User, channel *model.Channel) (*model.ChannelMember, *model.AppError) {
-	if channel.Type != model.ChannelTypeOpen && channel.Type != model.ChannelTypePrivate {
+	// Space backing channels carry real members (the docs plugin adds them through the plugin API);
+	// the user-facing /channels member endpoints reject spaces at the api4 layer.
+	if channel.Type != model.ChannelTypeOpen && channel.Type != model.ChannelTypePrivate && !channel.IsSpace() {
 		return nil, model.NewAppError("AddUserToChannel", "api.channel.add_user_to_channel.type.app_error", nil, "", http.StatusBadRequest)
 	}
 
@@ -1959,10 +1953,6 @@ type ChannelMemberOpts struct {
 
 // AddChannelMember adds a user to a channel. It is a wrapper over AddUserToChannel.
 func (a *App) AddChannelMember(rctx request.CTX, userID string, channel *model.Channel, opts ChannelMemberOpts) (*model.ChannelMember, *model.AppError) {
-	if channel.IsSpace() {
-		return nil, model.NewAppError("AddChannelMember", "app.channel.add_member.space.app_error", nil, "", http.StatusBadRequest)
-	}
-
 	if member, err := a.Srv().Store().Channel().GetMember(rctx, channel.Id, userID); err != nil {
 		var nfErr *store.ErrNotFound
 		if !errors.As(err, &nfErr) {

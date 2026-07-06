@@ -541,28 +541,18 @@ func TestCreateChannelSpaceRequiresEnableDocs(t *testing.T) {
 		assert.Equal(t, model.ChannelTypeSpace, channel.Type)
 	})
 
-	t.Run("CreateChannelWithUser rejects a space channel when EnableDocs is off", func(t *testing.T) {
-		th := SetupConfig(t, func(cfg *model.Config) {
-			cfg.FeatureFlags.EnableDocs = false
-		}).InitBasic(t)
-
-		_, appErr := th.App.CreateChannelWithUser(th.Context, newSpace(th.BasicTeam.Id), th.BasicUser.Id)
-		require.NotNil(t, appErr)
-		assert.Equal(t, "app.channel.create_channel.docs_not_enabled.app_error", appErr.Id)
-		assert.Equal(t, http.StatusForbidden, appErr.StatusCode)
-	})
-
-	t.Run("CreateChannelWithUser allows a space channel when EnableDocs is on", func(t *testing.T) {
+	t.Run("CreateChannelWithUser rejects a space channel", func(t *testing.T) {
+		// Space backing channels are created through CreateChannel (the docs plugin path),
+		// never CreateChannelWithUser, which applies chat semantics (sidebar category, join
+		// post, channel_created event) that do not belong on an internal backing channel.
 		th := SetupConfig(t, func(cfg *model.Config) {
 			cfg.FeatureFlags.EnableDocs = true
 		}).InitBasic(t)
 
-		channel, appErr := th.App.CreateChannelWithUser(th.Context, newSpace(th.BasicTeam.Id), th.BasicUser.Id)
-		require.Nil(t, appErr)
-		defer func() {
-			require.NoError(t, th.App.Srv().Store().Channel().PermanentDelete(th.Context, channel.Id))
-		}()
-		assert.Equal(t, model.ChannelTypeSpace, channel.Type)
+		_, appErr := th.App.CreateChannelWithUser(th.Context, newSpace(th.BasicTeam.Id), th.BasicUser.Id)
+		require.NotNil(t, appErr)
+		assert.Equal(t, "app.channel.create_channel.space_type.app_error", appErr.Id)
+		assert.Equal(t, http.StatusBadRequest, appErr.StatusCode)
 	})
 }
 

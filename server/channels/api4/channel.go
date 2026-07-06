@@ -603,6 +603,12 @@ func restoreChannel(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Space backing channels are managed through the spaces feature, not this generic endpoint.
+	if channel.IsSpace() {
+		c.Err = model.NewAppError("restoreChannel", "api.channel.space_channel.app_error", nil, "space channels cannot be accessed via /channels endpoints", http.StatusBadRequest)
+		return
+	}
+
 	teamId := channel.TeamId
 
 	auditRec := c.MakeAuditRecord(model.AuditEventRestoreChannel, model.AuditStatusFail)
@@ -1748,6 +1754,12 @@ func deleteChannel(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Space backing channels are managed through the spaces feature, not this generic endpoint.
+	if channel.IsSpace() {
+		c.Err = model.NewAppError("deleteChannel", "api.channel.space_channel.app_error", nil, "space channels cannot be accessed via /channels endpoints", http.StatusBadRequest)
+		return
+	}
+
 	if channel.Type == model.ChannelTypeOpen {
 		if ok, _ := c.App.SessionHasPermissionToChannel(c.AppContext, *c.AppContext.Session(), channel.Id, model.PermissionDeletePublicChannel); !ok {
 			c.SetPermissionError(model.PermissionDeletePublicChannel)
@@ -2430,6 +2442,12 @@ func addChannelMember(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	if channel.Type == model.ChannelTypeDirect || channel.Type == model.ChannelTypeGroup {
 		c.Err = model.NewAppError("addUserToChannel", "api.channel.add_user_to_channel.type.app_error", nil, "", http.StatusBadRequest)
+		return
+	}
+
+	// Space backing channels are managed through the spaces feature, not this generic endpoint.
+	if channel.IsSpace() {
+		c.Err = model.NewAppError("addChannelMember", "api.channel.space_channel.app_error", nil, "space channels cannot be accessed via /channels endpoints", http.StatusBadRequest)
 		return
 	}
 
