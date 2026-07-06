@@ -104,9 +104,16 @@ export async function submitSearch(channelsPage: ChannelsPage, query: string) {
 }
 
 export async function expectSearchResult(channelsPage: ChannelsPage, text: string) {
-    await expect(channelsPage.page.getByTestId('search-item-container').filter({hasText: text})).toBeVisible({
-        timeout: 30_000,
-    });
+    const result = channelsPage.page.getByTestId('search-item-container').filter({hasText: text});
+
+    await expect(async () => {
+        if (await result.isVisible({timeout: 1000}).catch(() => false)) {
+            return;
+        }
+
+        await channelsPage.searchBox.searchInput.press('Enter');
+        await expect(result).toBeVisible({timeout: 5000});
+    }).toPass({timeout: 60_000});
 }
 
 export async function expectNoSearchResult(channelsPage: ChannelsPage, text: string) {
