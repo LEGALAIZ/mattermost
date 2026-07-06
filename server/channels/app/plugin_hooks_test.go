@@ -2091,6 +2091,104 @@ drainLoop:
 	}
 }
 
+func TestUpdatePostConsumeHooksWithOpenGraphMetadata(t *testing.T) {
+	mainHelper.Parallel(t)
+
+	ogServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, `<html><head><meta property="og:title" content="OG Title"><meta property="og:description" content="OG Description"></head><body>ok</body></html>`)
+	}))
+	t.Cleanup(ogServer.Close)
+
+	testCases := []struct {
+		name            string
+		hookImpl        string
+		expectedMessage string
+	}{
+		{
+			name: "MessagesWillBeConsumed",
+			hookImpl: `
+		func (p *MyPlugin) MessagesWillBeConsumed(posts []*model.Post) []*model.Post {
+			for _, post := range posts {
+				if post.Metadata != nil {
+					post.Message = "metadata_leaked:" + post.Message
+					continue
+				}
+				post.Message = "mwbc_plugin:" + post.Message
+			}
+			return posts
+		}
+`,
+			expectedMessage: "mwbc_plugin:",
+		},
+		{
+			name: "MessagesWillBeConsumedWithContext",
+			hookImpl: `
+		func (p *MyPlugin) MessagesWillBeConsumedWithContext(c *plugin.Context, posts []*model.Post) []*model.Post {
+			for _, post := range posts {
+				if post.Metadata != nil {
+					post.Message = "metadata_leaked:" + post.Message
+					continue
+				}
+				post.Message = "mwbcwc_plugin:" + post.Message
+			}
+			return posts
+		}
+`,
+			expectedMessage: "mwbcwc_plugin:",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			th := SetupConfig(t, func(cfg *model.Config) {
+				*cfg.ServiceSettings.EnableLinkPreviews = true
+				*cfg.ServiceSettings.AllowedUntrustedInternalConnections = "localhost,127.0.0.1"
+			}).InitBasic(t)
+
+			var mockAPI plugintest.API
+			mockAPI.On("LoadPluginConfiguration", mock.Anything).Return(nil)
+			mockAPI.On("LogDebug", mock.Anything).Return(nil)
+
+			tearDown, _, _ := SetAppEnvironmentWithPlugins(t, []string{`
+		package main
+
+		import (
+			"github.com/mattermost/mattermost/server/public/plugin"
+			"github.com/mattermost/mattermost/server/public/model"
+		)
+
+		type MyPlugin struct {
+			plugin.MattermostPlugin
+		}
+` + tc.hookImpl + `
+
+		func main() {
+			plugin.ClientMain(&MyPlugin{})
+		}
+	`}, th.App, func(*model.Manifest) plugin.API { return &mockAPI })
+			t.Cleanup(tearDown)
+
+			basePost, _, err := th.App.CreatePost(th.Context, &model.Post{
+				UserId:    th.BasicUser.Id,
+				ChannelId: th.BasicChannel.Id,
+				Message:   "original body",
+			}, th.BasicChannel, model.CreatePostFlags{SetOnline: false})
+			require.Nil(t, err)
+
+			editedMessage := ogServer.URL + " edited body"
+			patchedPost, _, err := th.App.PatchPost(th.Context, basePost.Id, &model.PostPatch{
+				Message: &editedMessage,
+			}, nil)
+			require.Nil(t, err)
+
+			require.NotNil(t, patchedPost.Metadata)
+			require.NotEmpty(t, patchedPost.Metadata.Embeds)
+			require.Equal(t, tc.expectedMessage+editedMessage, patchedPost.Message)
+		})
+	}
+}
+
 func TestUpdatePostNoOpWhenNoPlugin(t *testing.T) {
 	mainHelper.Parallel(t)
 

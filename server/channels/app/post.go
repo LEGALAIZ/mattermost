@@ -2920,21 +2920,26 @@ func (a *App) applyPostWillBeConsumedHook(rctx request.CTX, post **model.Post) {
 		return
 	}
 
-	ps := []*model.Post{*post}
+	metadata := (*post).Metadata
+	ps := []*model.Post{(*post).ForPlugin()}
+	applyReplacement := func(replacements []*model.Post) {
+		if len(replacements) == 0 || replacements[0] == nil {
+			return
+		}
+		*post = replacements[0]
+		(*post).Metadata = metadata
+	}
+
 	a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
 		rp := hooks.MessagesWillBeConsumed(ps)
-		if len(rp) > 0 {
-			(*post) = rp[0]
-		}
+		applyReplacement(rp)
 		return true
 	}, plugin.MessagesWillBeConsumedID)
 
 	pluginContext := pluginContext(rctx)
 	a.ch.RunMultiHook(func(hooks plugin.Hooks, _ *model.Manifest) bool {
 		rp := hooks.MessagesWillBeConsumedWithContext(pluginContext, ps)
-		if len(rp) > 0 {
-			(*post) = rp[0]
-		}
+		applyReplacement(rp)
 		return true
 	}, plugin.MessagesWillBeConsumedWithContextID)
 }
